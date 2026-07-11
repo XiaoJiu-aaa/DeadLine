@@ -322,6 +322,14 @@ watch(() => props.visible, (v) => {
   }
 })
 
+watch(() => props.dateStr, () => {
+  if (panelMode.value === 'edit') {
+    editPanelRef.value?.save()
+  } else if (panelMode.value === 'new') {
+    closePanel()
+  }
+})
+
 defineExpose({})
 </script>
 
