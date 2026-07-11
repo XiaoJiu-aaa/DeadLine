@@ -10,9 +10,6 @@
       <button class="menu-item" @click.stop="emitAction('import')">
         导入数据
       </button>
-      <button class="menu-item" @click.stop="emitAction('downloadAll')">
-        全部下载
-      </button>
       <div class="dropdown-divider"></div>
       <button class="menu-item" @click.stop="emitAction('clearArchive')">
         清除归档

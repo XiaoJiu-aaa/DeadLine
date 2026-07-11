@@ -42,6 +42,7 @@ import AppHeader from './AppHeader.vue'
 import CalendarPage from './CalendarPage.vue'
 import DynamicBackground from './DynamicBackground.vue'
 import DayDiary from './DayDiary.vue'
+import { clearOldAttachments } from '../utils/db.js'
 
 const router = useRouter()
 const appHeader = ref(null)
@@ -53,6 +54,8 @@ const diaryOpen = ref(false)
 const diaryDate = ref('')
 
 function onSelectDate(dateStr) {
+  const todayStr = new Date().toISOString().split('T')[0]
+  if (dateStr > todayStr) return
   diaryDate.value = dateStr
   diaryOpen.value = true
 }
@@ -104,7 +107,7 @@ function onGlowMove(e) {
 // clicks that pass through the dropdown panels.
 function onPageClick(e) {
   appHeader.value?.closeDropdowns()
-  if (diaryOpen.value && !e.target.closest('.diary-panel')) {
+  if (diaryOpen.value && !e.target.closest('.diary-group')) {
     closeDiary()
   }
 }
@@ -117,10 +120,12 @@ function handleSettingsAction(action) {
       localStorage.setItem('todo_calendar_data', JSON.stringify(data))
       router.push('/login')
       break
+    case 'clearArchive':
+      clearOldAttachments().catch(() => {})
+      break
     case 'export':
     case 'import':
     case 'downloadAll':
-    case 'clearArchive':
       // Stub — will implement in later iterations
       break
   }
