@@ -161,6 +161,8 @@ watch(() => props.visible, (v) => {
     nextTick(() => {
       titleInput.value?.focus()
     })
+  } else {
+    closeSelect()
   }
 })
 
@@ -480,4 +482,44 @@ onBeforeUnmount(() => {
 
 .ntp-btn.ntp-save .star-fill { fill: #fec195; }
 .ntp-btn.ntp-save:hover .star-fill { fill: #fec195; }
+</style>
+
+<style>
+/* Teleported dropdown — must be non-scoped */
+.ntp-select-dropdown {
+  margin: 0;
+  background: var(--drawer-panel-bg, rgba(255,255,255,0.32));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--drawer-panel-border, rgba(255,255,255,0.5));
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  overflow: hidden;
+  z-index: 1000;
+  display: none;
+  transition: background 0.8s, border-color 0.8s;
+}
+.ntp-select-dropdown.open {
+  display: block;
+}
+.ntp-select-option {
+  padding: 10px 14px;
+  font-size: 13.5px;
+  color: var(--drawer-text, #2c2418);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.8s;
+  font-family: inherit;
+}
+.ntp-select-option:hover {
+  background: var(--drawer-item-hover, rgba(255,255,255,0.55));
+}
+.ntp-select-option.selected {
+  color: var(--drawer-accent, #4A90D9);
+  font-weight: 600;
+  background: var(--drawer-accent-soft, rgba(74,144,217,0.08));
+}
+[data-theme="night"] .ntp-select-dropdown {
+  background: rgba(30,30,55,0.94);
+  border-color: rgba(255,255,255,0.1);
+}
 </style>
