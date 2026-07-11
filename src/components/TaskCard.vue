@@ -58,7 +58,7 @@
           </div>
         </div>
         <div class="detail-actions">
-          <button class="act-btn edit-btn" @click.stop="$emit('edit')" v-if="!task.completed">编辑</button>
+          <button class="act-btn edit-btn" @click.stop="$emit('edit')" v-if="!task.completed && !isPastDate">编辑</button>
           <button class="act-btn danger" @click.stop="$emit('delete')">删除</button>
         </div>
       </div>
@@ -77,6 +77,7 @@ const props = defineProps({
   isEditing: { type: Boolean, default: false },
   isCompleting: { type: Boolean, default: false },
   isDeleting: { type: Boolean, default: false },
+  isPastDate: { type: Boolean, default: false },
 })
 
 defineEmits(['expand', 'toggleComplete', 'edit', 'delete'])

@@ -42,6 +42,7 @@
             :isEditing="editingTaskId === task.id"
             :isCompleting="completingTaskId === task.id"
             :isDeleting="deletingTaskId === task.id"
+            :isPastDate="isPastDate"
             @expand="onExpand(task)"
             @toggleComplete="onToggleComplete(task)"
             @edit="openEditPanel(task)"
@@ -58,6 +59,7 @@
             :isEditing="false"
             :isCompleting="false"
             :isDeleting="deletingTaskId === task.id"
+            :isPastDate="isPastDate"
             @expand="onExpand(task)"
             @toggleComplete="onToggleComplete(task)"
             @delete="onDelete(task)"
@@ -82,7 +84,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import TaskEditPanel from './TaskEditPanel.vue'
-import { getTaskStatus, CATEGORIES, formatDate } from '../utils/helpers.js'
+import { getTaskStatus, CATEGORIES, formatDate, isPast } from '../utils/helpers.js'
 import TaskCard from './TaskCard.vue'
 
 const props = defineProps({
@@ -114,6 +116,7 @@ const editingTask = computed(() => {
 const panelVisible = computed(() => panelMode.value !== 'closed')
 
 const todayStr = computed(() => formatDate(new Date()))
+const isPastDate = computed(() => isPast(props.dateStr))
 
 const activeTasks = computed(() => {
   return props.tasks
@@ -189,7 +192,7 @@ function onListScroll() {
 
 // Panel open/close
 function openNewPanel() {
-  // Close other expanded cards
+  if (isPastDate.value) return
   expandedTaskId.value = null
   editingTaskId.value = null
   panelMode.value = 'new'
@@ -198,6 +201,7 @@ function openNewPanel() {
 }
 
 function openEditPanel(task) {
+  if (isPastDate.value) return
   expandedTaskId.value = task.id
   editingTaskId.value = task.id
   panelMode.value = 'edit'
