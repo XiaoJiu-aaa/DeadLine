@@ -30,6 +30,22 @@ export function isOverdue(latestStart) {
   return latestStart < formatDate(new Date())
 }
 
+export function getTaskStatus(task, todayStr) {
+  if (task.completed) return 'completed'
+  const today = new Date(todayStr)
+  today.setHours(0, 0, 0, 0)
+  const taskDay = new Date(task.date)
+  taskDay.setHours(0, 0, 0, 0)
+  if (task.latestStart) {
+    const ls = new Date(task.latestStart)
+    ls.setHours(0, 0, 0, 0)
+    if (today > ls) return 'urgent'
+  }
+  if (taskDay < today) return 'overdue'
+  if (task.date === todayStr) return 'today'
+  return 'normal'
+}
+
 export const CATEGORIES = {
   study: { label: '学习', color: '#4A90D9' },
   life: { label: '生活', color: '#5CB85C' },

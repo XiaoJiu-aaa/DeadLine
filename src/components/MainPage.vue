@@ -39,8 +39,20 @@
 
     <!-- Main Content -->
     <div class="main-content">
-      <CalendarPage ref="calendarRef" :importantDays="importantDays" :specialDays="specialDays" @selectDate="onSelectDate" />
+      <CalendarPage ref="calendarRef" :importantDays="importantDays" :specialDays="specialDays" :taskDatesMap="taskDatesMap" @selectDate="onSelectDate" />
     </div>
+
+    <!-- Task Drawer -->
+    <TaskDrawer
+      :tasks="tasksForDate"
+      :dateStr="selectedDate"
+      :visible="drawerOpen"
+      @close="closeDrawer"
+      @create="onTaskCreate"
+      @update="onTaskUpdate"
+      @delete="onTaskDelete"
+      @toggleComplete="onTaskToggleComplete"
+    />
   </div>
 </template>
 
@@ -51,8 +63,11 @@ import AppHeader from './AppHeader.vue'
 import CalendarPage from './CalendarPage.vue'
 import DynamicBackground from './DynamicBackground.vue'
 import DayDiary from './DayDiary.vue'
+import TaskDrawer from './TaskDrawer.vue'
 import { clearOldAttachments } from '../utils/db.js'
-import { getCurrentUser, getImportantDays, toggleImportantDay, getSpecialDays, toggleSpecialDay } from '../utils/storage.js'
+import { saveFile, deleteFiles } from '../utils/db.js'
+import { getCurrentUser, getImportantDays, toggleImportantDay, getSpecialDays, toggleSpecialDay, getAllTasks, saveAllTasks } from '../utils/storage.js'
+import { generateId } from '../utils/helpers.js'
 
 const router = useRouter()
 const appHeader = ref(null)
@@ -65,6 +80,25 @@ const diaryDate = ref('')
 const selectedDate = ref('')
 const importantDays = ref([])
 const specialDays = ref([])
+const tasks = ref([])
+const drawerOpen = ref(false)
+
+const tasksForDate = computed(() =>
+  tasks.value.filter(t => t.date === selectedDate.value)
+)
+
+const taskDatesMap = computed(() => {
+  const map = {}
+  for (const t of tasks.value) {
+    if (!t.completed) {
+      if (!map[t.date]) map[t.date] = []
+      if (!map[t.date].includes(t.category)) {
+        map[t.date].push(t.category)
+      }
+    }
+  }
+  return map
+})
 
 const isImportant = computed(() => importantDays.value.includes(selectedDate.value))
 const isSpecial = computed(() => specialDays.value.includes(selectedDate.value))
@@ -83,6 +117,7 @@ function loadImportantDays() {
 
 function onSelectDate(dateStr) {
   selectedDate.value = dateStr
+  drawerOpen.value = true
   const todayStr = new Date().toISOString().split('T')[0]
   if (dateStr > todayStr) return
   diaryDate.value = dateStr
@@ -115,6 +150,92 @@ function closeDiary() {
   diaryOpen.value = false
   selectedDate.value = ''
   calendarRef.value?.clearSelection()
+}
+
+function closeDrawer() {
+  drawerOpen.value = false
+  selectedDate.value = ''
+  diaryOpen.value = false
+  calendarRef.value?.clearSelection()
+}
+
+function loadTasks() {
+  const user = getCurrentUser()
+  if (user) {
+    tasks.value = getAllTasks(user) || []
+  }
+}
+
+function persistTasks() {
+  const user = getCurrentUser()
+  if (user) saveAllTasks(user, tasks.value)
+}
+
+async function onTaskCreate(formData) {
+  const task = {
+    id: generateId('t'),
+    title: formData.title,
+    date: formData.date,
+    isAllDay: formData.isAllDay,
+    timeLabel: formData.timeLabel,
+    latestStart: null,
+    category: formData.category,
+    note: formData.note,
+    completed: false,
+    attachments: [],
+  }
+  // Save file attachments to IndexedDB
+  const pendingAtts = formData.pendingAttachments || []
+  for (const att of pendingAtts) {
+    const attId = generateId('att')
+    if (att._file) {
+      await saveFile(attId, att._file)
+    }
+    task.attachments.push({ id: attId, name: att.name, size: att.size })
+  }
+  tasks.value.unshift(task)
+  persistTasks()
+}
+
+async function onTaskUpdate({ id, data }) {
+  const task = tasks.value.find(t => t.id === id)
+  if (!task) return
+  task.title = data.title
+  task.category = data.category
+  task.date = data.date
+  task.isAllDay = data.isAllDay
+  task.timeLabel = data.timeLabel
+  task.note = data.note
+  // Merge attachments: keep existing ones, add new ones with files
+  const newAtts = data.pendingAttachments || []
+  const existingIds = new Set(task.attachments.map(a => a.id))
+  const toAdd = newAtts.filter(a => !a.id || !existingIds.has(a.id))
+  for (const att of toAdd) {
+    const attId = generateId('att')
+    if (att._file) {
+      await saveFile(attId, att._file)
+    }
+    task.attachments.push({ id: attId, name: att.name, size: att.size })
+  }
+  persistTasks()
+}
+
+async function onTaskDelete(taskId) {
+  const task = tasks.value.find(t => t.id === taskId)
+  if (task && task.attachments.length) {
+    const ids = task.attachments.map(a => a.id)
+    await deleteFiles(ids).catch(() => {})
+  }
+  tasks.value = tasks.value.filter(t => t.id !== taskId)
+  persistTasks()
+}
+
+function onTaskToggleComplete(taskId) {
+  const task = tasks.value.find(t => t.id === taskId)
+  if (task) {
+    task.completed = !task.completed
+    persistTasks()
+  }
 }
 
 // Ceiling lamp
@@ -159,6 +280,9 @@ function onGlowMove(e) {
 // clicks that pass through the dropdown panels.
 function onPageClick(e) {
   appHeader.value?.closeDropdowns()
+  if (drawerOpen.value && !e.target.closest('.drawer-wrapper')) {
+    closeDrawer()
+  }
   if (diaryOpen.value && !e.target.closest('.diary-group')) {
     closeDiary()
   }
@@ -189,6 +313,7 @@ function onKeyDown(e) {
   if (tag === 'INPUT' || tag === 'TEXTAREA') return
 
   if (e.key === 'Escape') {
+    if (drawerOpen.value) { closeDrawer(); return }
     appHeader.value?.closeDropdowns()
   }
   if (e.key === 'q' || e.key === 'Q') {
@@ -203,6 +328,7 @@ onMounted(() => {
   document.addEventListener('keydown', onKeyDown)
   document.body.setAttribute('data-theme', 'day')
   loadImportantDays()
+  loadTasks()
 
   syncTheme()
   themeObserver = new MutationObserver((mutations) => {

@@ -106,6 +106,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 const props = defineProps({
   importantDays: { type: Array, default: () => [] },
   specialDays: { type: Array, default: () => [] },
+  taskDatesMap: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['selectDate'])
@@ -212,7 +213,7 @@ const cells = computed(() => {
       isPast: cellDate < todayStart,
       isImportant: props.importantDays.includes(dateStr),
       isSpecial: props.specialDays.includes(dateStr),
-      dots: [],
+      dots: props.taskDatesMap[dateStr] || [],
     })
     idx++
   }
