@@ -307,10 +307,11 @@ onBeforeUnmount(() => {
   width: 420px;
   height: 560px;
   background:
-    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(255, 235, 180, 0.25) 0%, rgba(255, 220, 150, 0.08) 40%, transparent 75%),
-    linear-gradient(180deg, rgba(255, 235, 180, 0.18) 0%, rgba(255, 220, 140, 0.06) 35%, transparent 100%);
-  clip-path: polygon(38% 0%, 62% 0%, 95% 100%, 5% 100%);
+    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(255, 240, 190, 0.45) 0%, rgba(255, 225, 155, 0.20) 30%, rgba(255, 210, 130, 0.06) 60%, transparent 80%),
+    linear-gradient(180deg, rgba(255, 240, 185, 0.35) 0%, rgba(255, 220, 140, 0.12) 35%, transparent 100%);
+  clip-path: polygon(43% 0%, 57% 0%, 95% 100%, 5% 100%);
   pointer-events: none;
+  mix-blend-mode: screen;
   transition: opacity 0.7s ease;
 }
 
