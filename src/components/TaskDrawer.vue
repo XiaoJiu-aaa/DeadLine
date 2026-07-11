@@ -71,6 +71,7 @@
     <div class="edit-connector" :class="{ active: connectorActive }" :style="connectorStyle"></div>
 
     <TaskEditPanel
+      ref="editPanelRef"
       :task="editingTask"
       :dateStr="dateStr"
       :visible="panelVisible"
@@ -98,6 +99,7 @@ const emit = defineEmits(['close', 'create', 'update', 'delete', 'toggleComplete
 const drawerWrapper = ref(null)
 const drawer = ref(null)
 const drawerList = ref(null)
+const editPanelRef = ref(null)
 
 const expandedTaskId = ref(null)
 const editingTaskId = ref(null)
@@ -214,6 +216,10 @@ function openNewPanel() {
 
 function openEditPanel(task) {
   if (isPastDate.value) return
+  // Save current edit before switching to a different task
+  if (panelMode.value === 'edit' && editingTaskId.value !== task.id) {
+    editPanelRef.value?.save()
+  }
   expandedTaskId.value = task.id
   editingTaskId.value = task.id
   panelMode.value = 'edit'
@@ -283,7 +289,6 @@ function onKeyDown(e) {
   if (e.key === 'r' || e.key === 'R') {
     e.preventDefault()
     if (!expandedTaskId.value) return
-    if (panelMode.value === 'edit') return
     const task = props.tasks.find(t => t.id === expandedTaskId.value)
     if (task && !task.completed) openEditPanel(task)
   }
