@@ -184,8 +184,18 @@ function handleSettingsAction(action) {
 }
 
 function onKeyDown(e) {
+  // Don't trigger shortcuts when typing in inputs
+  const tag = document.activeElement?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
   if (e.key === 'Escape') {
     appHeader.value?.closeDropdowns()
+  }
+  if (e.key === 'q' || e.key === 'Q') {
+    onToggleImportant()
+  }
+  if (e.key === 'e' || e.key === 'E') {
+    onToggleSpecial()
   }
 }
 
