@@ -1,5 +1,5 @@
 <template>
-  <div class="login-page" data-theme="day">
+  <div class="login-page" :data-theme="pageTheme">
     <DynamicBackground />
 
     <!-- Ceiling lamp (night theme) -->
@@ -97,6 +97,8 @@ const loginCard = ref(null)
 const cardGlow = ref(null)
 let toastTimer = null
 
+const pageTheme = ref('day')
+
 // Ceiling lamp
 const lampOn = ref(true)
 const isNight = ref(false)
@@ -108,7 +110,8 @@ function toggleLamp() {
 }
 
 function syncTheme() {
-  const theme = document.body.getAttribute('data-theme')
+  const theme = document.body.getAttribute('data-theme') || 'day'
+  pageTheme.value = theme
   clearTimeout(lampTimer)
 
   if (theme === 'night') {
@@ -213,7 +216,6 @@ function onMouseLeave() {
 }
 
 onMounted(() => {
-  document.body.setAttribute('data-theme', 'day')
   const card = loginCard.value
   card.addEventListener('mousemove', onMouseMove)
   card.addEventListener('mouseenter', onMouseEnter)

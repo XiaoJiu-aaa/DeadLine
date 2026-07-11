@@ -7,7 +7,7 @@
         v-for="opt in themes"
         :key="opt.key"
         class="slider-option"
-        @click="setTheme(opt.key)"
+        @click="onUserSetTheme(opt.key)"
         :aria-label="opt.label"
         v-html="opt.icon"
       ></button>
@@ -47,9 +47,12 @@ const themes = [
 
 const currentTheme = ref('day')
 const beamOpacity = ref(1)
+const manualTheme = ref(false)
 let particles = []
 let animationId = null
 let ctx = null
+let timeCheckTimer = null
+let themeObserver = null
 
 const thumbPositions = { day: 4, evening: 44, night: 84 }
 
@@ -227,22 +230,54 @@ function setTheme(theme) {
   }
 }
 
+function onUserSetTheme(theme) {
+  manualTheme.value = true
+  setTheme(theme)
+}
+
+function checkAutoTheme() {
+  if (manualTheme.value) return
+  const auto = getAutoTheme()
+  if (auto !== currentTheme.value) {
+    setTheme(auto)
+  }
+}
+
 onMounted(() => {
   const c = canvas.value
   ctx = c.getContext('2d')
   resizeCanvas()
   window.addEventListener('resize', resizeCanvas)
 
-  // Auto-detect theme from system time on first entry
+  // Auto-detect theme from system time on each page entry
   setTheme(getAutoTheme())
 
   createParticles()
   animate()
+
+  // Check time periodically for auto theme switch
+  timeCheckTimer = setInterval(checkAutoTheme, 30000)
+
+  // Watch for external theme changes (e.g. AppHeader settings)
+  themeObserver = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.attributeName === 'data-theme') {
+        const bodyTheme = document.body.getAttribute('data-theme')
+        if (bodyTheme && bodyTheme !== currentTheme.value) {
+          manualTheme.value = true
+          setTheme(bodyTheme)
+        }
+      }
+    }
+  })
+  themeObserver.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeCanvas)
   if (animationId) cancelAnimationFrame(animationId)
+  if (timeCheckTimer) clearInterval(timeCheckTimer)
+  if (themeObserver) themeObserver.disconnect()
 })
 </script>
 

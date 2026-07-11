@@ -496,7 +496,6 @@ function onKeyDown(e) {
 
 onMounted(() => {
   document.addEventListener('keydown', onKeyDown)
-  document.body.setAttribute('data-theme', 'day')
   loadImportantDays()
   loadTasks()
 
