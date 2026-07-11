@@ -6,8 +6,9 @@
     </div>
 
     <div class="header-actions">
-      <HelpCard ref="helpCard" @opened="settingsPanel?.close()" />
-      <SettingsPanel ref="settingsPanel" @action="handleAction" />
+      <HelpCard ref="helpCard" @opened="onHelpOpened" />
+      <DownloadButton ref="downloadBtn" @opened="onDownloadToastOpened" />
+      <SettingsPanel ref="settingsPanel" @action="handleAction" @opened="onSettingsOpened" />
     </div>
 
     <!-- Right-side tools group -->
@@ -71,6 +72,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import SettingsPanel from './SettingsPanel.vue'
 import HelpCard from './HelpCard.vue'
+import DownloadButton from './DownloadButton.vue'
 
 const props = defineProps({
   selectedDate: { type: String, default: '' },
@@ -93,6 +95,7 @@ const circleTitle = computed(() => {
 
 const settingsPanel = ref(null)
 const helpCard = ref(null)
+const downloadBtn = ref(null)
 const sliderThumb = ref(null)
 let themeObserver = null
 
@@ -130,6 +133,22 @@ function handleAction(action) {
 function closeDropdowns() {
   settingsPanel.value?.close()
   helpCard.value?.close()
+  downloadBtn.value?.close()
+}
+
+function onHelpOpened() {
+  settingsPanel.value?.close()
+  downloadBtn.value?.close()
+}
+
+function onDownloadToastOpened() {
+  settingsPanel.value?.close()
+  helpCard.value?.close()
+}
+
+function onSettingsOpened() {
+  helpCard.value?.close()
+  downloadBtn.value?.close()
 }
 
 function syncThumb() {

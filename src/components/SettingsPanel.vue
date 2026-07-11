@@ -24,11 +24,12 @@
 <script setup>
 import { ref } from 'vue'
 
-const emit = defineEmits(['action'])
+const emit = defineEmits(['action', 'opened'])
 const open = ref(false)
 
 function toggle() {
   open.value = !open.value
+  if (open.value) emit('opened')
 }
 
 function emitAction(action) {

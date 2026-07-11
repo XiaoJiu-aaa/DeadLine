@@ -70,6 +70,7 @@
 import { ref, computed, watch } from 'vue'
 import { getCurrentUser } from '../utils/storage.js'
 import { getDiary, saveDiary } from '../utils/storage.js'
+import { formatDate } from '../utils/helpers.js'
 
 const props = defineProps({
   dateStr: { type: String, default: '' },
@@ -91,7 +92,7 @@ const displayDate = computed(() => {
 const empty = () => ({ weather: [], mood: [], message: '' })
 const diary = ref(empty())
 
-const todayStr = computed(() => new Date().toISOString().split('T')[0])
+const todayStr = computed(() => formatDate(new Date()))
 const readonly = computed(() => props.dateStr < todayStr.value)
 
 const weathers = [

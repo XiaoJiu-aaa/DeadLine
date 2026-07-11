@@ -82,7 +82,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import TaskEditPanel from './TaskEditPanel.vue'
-import { getTaskStatus, CATEGORIES } from '../utils/helpers.js'
+import { getTaskStatus, CATEGORIES, formatDate } from '../utils/helpers.js'
 import TaskCard from './TaskCard.vue'
 
 const props = defineProps({
@@ -113,7 +113,7 @@ const editingTask = computed(() => {
 
 const panelVisible = computed(() => panelMode.value !== 'closed')
 
-const todayStr = computed(() => new Date().toISOString().split('T')[0])
+const todayStr = computed(() => formatDate(new Date()))
 
 const activeTasks = computed(() => {
   return props.tasks

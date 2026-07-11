@@ -68,7 +68,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { getTaskStatus, CATEGORIES } from '../utils/helpers.js'
+import { getTaskStatus, CATEGORIES, formatDate } from '../utils/helpers.js'
 import { getFile } from '../utils/db.js'
 
 const props = defineProps({
@@ -81,7 +81,7 @@ const props = defineProps({
 
 defineEmits(['expand', 'toggleComplete', 'edit', 'delete'])
 
-const todayStr = new Date().toISOString().split('T')[0]
+const todayStr = formatDate(new Date())
 
 const statusClass = computed(() => {
   const status = getTaskStatus(props.task, todayStr)

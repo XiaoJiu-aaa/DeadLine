@@ -67,7 +67,7 @@ import TaskDrawer from './TaskDrawer.vue'
 import { clearOldAttachments } from '../utils/db.js'
 import { saveFile, deleteFiles, getFile } from '../utils/db.js'
 import { getCurrentUser, getImportantDays, toggleImportantDay, getSpecialDays, toggleSpecialDay, getAllTasks, saveAllTasks } from '../utils/storage.js'
-import { generateId } from '../utils/helpers.js'
+import { generateId, formatDate } from '../utils/helpers.js'
 import JSZip from 'jszip'
 
 const router = useRouter()
@@ -105,7 +105,7 @@ const isImportant = computed(() => importantDays.value.includes(selectedDate.val
 const isSpecial = computed(() => specialDays.value.includes(selectedDate.value))
 const canMark = computed(() => {
   if (!selectedDate.value) return false
-  return selectedDate.value >= new Date().toISOString().split('T')[0]
+  return selectedDate.value >= formatDate(new Date())
 })
 
 function loadImportantDays() {
@@ -120,7 +120,7 @@ function onSelectDate(dateStr) {
   appHeader.value?.closeDropdowns()
   selectedDate.value = dateStr
   drawerOpen.value = true
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = formatDate(new Date())
   if (dateStr > todayStr) return
   diaryDate.value = dateStr
   diaryOpen.value = true
@@ -358,7 +358,7 @@ async function exportData() {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `todo-calendar-backup-${new Date().toISOString().split('T')[0]}.zip`
+  a.download = `todo-calendar-backup-${formatDate(new Date())}.zip`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
