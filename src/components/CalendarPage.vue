@@ -1,6 +1,6 @@
 <template>
   <div class="calendar-wrapper">
-    <div class="calendar-scene">
+    <div class="calendar-scene" @click.stop>
       <div class="calendar-body" :class="{ flipping: isFlipping }">
         <div class="flip-overlay"></div>
 
@@ -45,7 +45,7 @@
               :key="cell.key"
               class="calendar-cell"
               :class="cell.classes"
-              @click="selectDate(cell)"
+              @click.stop="selectDate(cell)"
             >
               <span class="cell-date">{{ cell.day }}</span>
 
@@ -78,12 +78,14 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 
+const emit = defineEmits(['selectDate'])
+
 const today = new Date()
 const todayStr = fmtDate(today)
 
 const currentMonth = ref(today.getMonth())
 const currentYear = ref(today.getFullYear())
-const selectedDate = ref(todayStr)
+const selectedDate = ref(null)
 const isFlipping = ref(false)
 
 // Inline year/month editing
@@ -200,7 +202,14 @@ const cells = computed(() => {
 function selectDate(cell) {
   if (!cell.dateStr) return
   selectedDate.value = cell.dateStr
+  emit('selectDate', cell.dateStr)
 }
+
+function clearSelection() {
+  selectedDate.value = null
+}
+
+defineExpose({ clearSelection })
 
 function flipMonth(delta) {
   if (isFlipping.value) return
@@ -211,11 +220,7 @@ function flipMonth(delta) {
     if (currentMonth.value > 11) { currentMonth.value = 0; currentYear.value++ }
     if (currentMonth.value < 0) { currentMonth.value = 11; currentYear.value-- }
 
-    const daysInNewMonth = new Date(currentYear.value, currentMonth.value + 1, 0).getDate()
-    const selDate = new Date(selectedDate.value)
-    if (selDate.getFullYear() !== currentYear.value || selDate.getMonth() !== currentMonth.value) {
-      selectedDate.value = fmtDate(new Date(currentYear.value, currentMonth.value, Math.min(new Date(selectedDate.value).getDate(), daysInNewMonth)))
-    }
+    selectedDate.value = null
 
     setTimeout(() => {
       isFlipping.value = false
@@ -229,6 +234,7 @@ function goToToday() {
     currentYear.value = today.getFullYear()
   }
   selectedDate.value = todayStr
+  emit('selectDate', todayStr)
 }
 
 function onKeyDown(e) {

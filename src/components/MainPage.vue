@@ -25,9 +25,12 @@
     <!-- Header -->
     <AppHeader ref="appHeader" @settingsAction="handleSettingsAction" />
 
+    <!-- Day Diary Panel -->
+    <DayDiary :dateStr="diaryDate" :visible="diaryOpen" @close="closeDiary" />
+
     <!-- Main Content -->
     <div class="main-content">
-      <CalendarPage />
+      <CalendarPage ref="calendarRef" @selectDate="onSelectDate" />
     </div>
   </div>
 </template>
@@ -38,12 +41,26 @@ import { useRouter } from 'vue-router'
 import AppHeader from './AppHeader.vue'
 import CalendarPage from './CalendarPage.vue'
 import DynamicBackground from './DynamicBackground.vue'
+import DayDiary from './DayDiary.vue'
 
 const router = useRouter()
 const appHeader = ref(null)
+const calendarRef = ref(null)
 const backdropActive = ref(false)
 const pageGlow = ref(null)
 const pageReady = ref(false)
+const diaryOpen = ref(false)
+const diaryDate = ref('')
+
+function onSelectDate(dateStr) {
+  diaryDate.value = dateStr
+  diaryOpen.value = true
+}
+
+function closeDiary() {
+  diaryOpen.value = false
+  calendarRef.value?.clearSelection()
+}
 
 // Ceiling lamp
 const lampOn = ref(true)
@@ -85,8 +102,11 @@ function onGlowMove(e) {
 // Watch for dropdown state changes using MutationObserver or events.
 // For simplicity, backdrop is always "ready" — the actual backdrop intercepts
 // clicks that pass through the dropdown panels.
-function onPageClick() {
+function onPageClick(e) {
   appHeader.value?.closeDropdowns()
+  if (diaryOpen.value && !e.target.closest('.diary-panel')) {
+    closeDiary()
+  }
 }
 
 function handleSettingsAction(action) {

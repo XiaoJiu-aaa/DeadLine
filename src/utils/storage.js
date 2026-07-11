@@ -73,3 +73,18 @@ export function saveAllTasks(username, tasks) {
 function hashPassword(pwd) {
   return btoa(unescape(encodeURIComponent(pwd)))
 }
+
+// ===== Diary =====
+export function getDiary(username, dateStr) {
+  const user = getUserData(username)
+  if (!user || !user.diaries) return null
+  return user.diaries[dateStr] || null
+}
+
+export function saveDiary(username, dateStr, diary) {
+  const data = read()
+  if (!data.users[username]) return
+  if (!data.users[username].diaries) data.users[username].diaries = {}
+  data.users[username].diaries[dateStr] = diary
+  write(data)
+}
