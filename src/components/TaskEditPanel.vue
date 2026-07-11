@@ -521,5 +521,16 @@ onBeforeUnmount(() => {
 [data-theme="night"] .ntp-select-dropdown {
   background: rgba(30,30,55,0.94);
   border-color: rgba(255,255,255,0.1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+}
+[data-theme="night"] .ntp-select-option {
+  color: #d8d6e0;
+}
+[data-theme="night"] .ntp-select-option:hover {
+  background: rgba(255,255,255,0.1);
+}
+[data-theme="night"] .ntp-select-option.selected {
+  color: #7b9ed4;
+  background: rgba(123,158,212,0.12);
 }
 </style>

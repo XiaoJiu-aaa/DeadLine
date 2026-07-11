@@ -117,6 +117,7 @@ function loadImportantDays() {
 }
 
 function onSelectDate(dateStr) {
+  appHeader.value?.closeDropdowns()
   selectedDate.value = dateStr
   drawerOpen.value = true
   const todayStr = new Date().toISOString().split('T')[0]
