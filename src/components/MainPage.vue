@@ -121,7 +121,10 @@ function onSelectDate(dateStr) {
   selectedDate.value = dateStr
   drawerOpen.value = true
   const todayStr = formatDate(new Date())
-  if (dateStr > todayStr) return
+  if (dateStr > todayStr) {
+    diaryOpen.value = false
+    return
+  }
   diaryDate.value = dateStr
   diaryOpen.value = true
 }
