@@ -65,9 +65,10 @@ import DynamicBackground from './DynamicBackground.vue'
 import DayDiary from './DayDiary.vue'
 import TaskDrawer from './TaskDrawer.vue'
 import { clearOldAttachments } from '../utils/db.js'
-import { saveFile, deleteFiles } from '../utils/db.js'
+import { saveFile, deleteFiles, getFile } from '../utils/db.js'
 import { getCurrentUser, getImportantDays, toggleImportantDay, getSpecialDays, toggleSpecialDay, getAllTasks, saveAllTasks } from '../utils/storage.js'
 import { generateId } from '../utils/helpers.js'
+import JSZip from 'jszip'
 
 const router = useRouter()
 const appHeader = ref(null)
@@ -300,11 +301,149 @@ function handleSettingsAction(action) {
       clearOldAttachments().catch(() => {})
       break
     case 'export':
+      exportData()
+      break
     case 'import':
+      importData()
+      break
     case 'downloadAll':
-      // Stub — will implement in later iterations
       break
   }
+}
+
+async function exportData() {
+  const user = getCurrentUser()
+  if (!user) return
+  const userData = JSON.parse(localStorage.getItem('todo_calendar_data') || '{}')
+  const profile = userData.users[user] || {}
+  const tasks = profile.tasks || []
+
+  const zip = new JSZip()
+  const attachmentsFolder = zip.folder('attachments')
+
+  // Collect all attachment IDs and fetch blobs from IndexedDB
+  const allAttIds = []
+  for (const task of tasks) {
+    if (task.attachments) {
+      for (const att of task.attachments) {
+        if (att.id) allAttIds.push(att.id)
+      }
+    }
+  }
+
+  // Fetch and add each attachment file to the ZIP
+  for (const attId of allAttIds) {
+    try {
+      const record = await getFile(attId)
+      if (record && record.blob) {
+        attachmentsFolder.file(attId, record.blob)
+      }
+    } catch (_) { /* skip missing files */ }
+  }
+
+  // Add data.json (metadata only, same structure as before)
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    username: user,
+    tasks: tasks,
+    importantDays: profile.importantDays || [],
+    specialDays: profile.specialDays || [],
+    diaries: profile.diaries || {},
+  }
+  zip.file('data.json', JSON.stringify(payload, null, 2))
+
+  const blob = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `todo-calendar-backup-${new Date().toISOString().split('T')[0]}.zip`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+function importData() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.zip,.json'
+  input.onchange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      let payload
+
+      if (file.name.endsWith('.zip')) {
+        const zip = await JSZip.loadAsync(file)
+        const dataFile = zip.file('data.json')
+        if (!dataFile) { alert('ZIP 中未找到 data.json'); return }
+        const text = await dataFile.async('string')
+        payload = JSON.parse(text)
+
+        // Restore attachments to IndexedDB
+        const attachmentsFolder = zip.folder('attachments')
+        if (attachmentsFolder) {
+          const attFiles = []
+          attachmentsFolder.forEach((relativePath, zipEntry) => {
+            if (!zipEntry.dir) attFiles.push({ id: relativePath, entry: zipEntry })
+          })
+          for (const { id, entry } of attFiles) {
+            try {
+              const blob = await entry.async('blob')
+              await saveFile(id, blob)
+            } catch (_) { /* skip */ }
+          }
+        }
+      } else {
+        // Plain JSON fallback (no attachments)
+        const text = await file.text()
+        payload = JSON.parse(text)
+      }
+
+      if (!payload.version || !payload.tasks) {
+        alert('无效的备份文件格式')
+        return
+      }
+      const user = getCurrentUser()
+      if (!user) return
+      const data = JSON.parse(localStorage.getItem('todo_calendar_data') || '{}')
+      if (!data.users[user]) return
+
+      const existingIds = new Set((data.users[user].tasks || []).map(t => t.id))
+      const newTasks = (payload.tasks || []).filter(t => !existingIds.has(t.id))
+      data.users[user].tasks = [...(data.users[user].tasks || []), ...newTasks]
+
+      const existingImp = new Set(data.users[user].importantDays || [])
+      data.users[user].importantDays = [
+        ...(data.users[user].importantDays || []),
+        ...(payload.importantDays || []).filter(d => !existingImp.has(d)),
+      ]
+
+      const existingSp = new Set(data.users[user].specialDays || [])
+      data.users[user].specialDays = [
+        ...(data.users[user].specialDays || []),
+        ...(payload.specialDays || []).filter(d => !existingSp.has(d)),
+      ]
+
+      if (payload.diaries) {
+        if (!data.users[user].diaries) data.users[user].diaries = {}
+        for (const [date, diary] of Object.entries(payload.diaries)) {
+          if (!data.users[user].diaries[date]) {
+            data.users[user].diaries[date] = diary
+          }
+        }
+      }
+
+      localStorage.setItem('todo_calendar_data', JSON.stringify(data))
+      loadTasks()
+      loadImportantDays()
+      alert(`导入成功！新增 ${newTasks.length} 条任务`)
+    } catch (err) {
+      alert('文件解析失败，请检查文件格式')
+    }
+  }
+  input.click()
 }
 
 function onKeyDown(e) {
