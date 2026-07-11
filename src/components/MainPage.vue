@@ -30,7 +30,12 @@ const pageGlow = ref(null)
 function onGlowMove(e) {
   const x = (e.clientX / window.innerWidth) * 100
   const y = (e.clientY / window.innerHeight) * 100
-  pageGlow.value.style.background = `radial-gradient(circle 300px at ${x}% ${y}%, var(--accent-glow), transparent 70%)`
+  const theme = document.body.getAttribute('data-theme')
+  if (theme === 'night') {
+    pageGlow.value.style.background = `radial-gradient(circle 300px at ${x}% ${y}%, rgba(255,245,225,0.40), rgba(240,225,200,0.15) 40%, transparent 65%)`
+  } else {
+    pageGlow.value.style.background = `radial-gradient(circle 300px at ${x}% ${y}%, var(--accent-glow), transparent 70%)`
+  }
 }
 
 // Watch for dropdown state changes using MutationObserver or events.
@@ -145,10 +150,14 @@ onBeforeUnmount(() => {
 .page-glow {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 30;
   pointer-events: none;
   background: radial-gradient(circle 300px at 50% 50%, var(--accent-glow), transparent 70%);
   transition: opacity 0.6s ease;
+}
+
+[data-theme="night"] .page-glow {
+  background: radial-gradient(circle 300px at 50% 50%, rgba(255,245,225,0.40), rgba(240,225,200,0.15) 40%, transparent 65%);
 }
 
 /* Desktop texture overlay */
