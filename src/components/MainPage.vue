@@ -49,6 +49,7 @@ const pageReady = ref(false)
 const lampOn = ref(true)
 const isNight = ref(false)
 let themeObserver = null
+let lampTimer = null
 
 function toggleLamp() {
   lampOn.value = !lampOn.value
@@ -56,8 +57,18 @@ function toggleLamp() {
 
 function syncTheme() {
   const theme = document.body.getAttribute('data-theme')
-  isNight.value = theme === 'night'
-  if (isNight.value) lampOn.value = true
+  clearTimeout(lampTimer)
+
+  if (theme === 'night') {
+    // Slide down first (1.6s), then turn on
+    isNight.value = true
+    lampOn.value = false
+    lampTimer = setTimeout(() => { lampOn.value = true }, 1600)
+  } else {
+    // Turn off first (light fades in 0.7s), then slide up
+    lampOn.value = false
+    lampTimer = setTimeout(() => { isNight.value = false }, 700)
+  }
 }
 
 function onGlowMove(e) {
