@@ -1,5 +1,8 @@
 <template>
   <div class="main-page" @click="onPageClick" @mousemove="onGlowMove" ref="mainPageRef">
+    <!-- Dynamic background particles -->
+    <DynamicBackground :showThemeSlider="false" />
+
     <!-- Mouse-follow glow -->
     <div class="page-glow" ref="pageGlow"></div>
 
@@ -21,6 +24,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from './AppHeader.vue'
 import CalendarPage from './CalendarPage.vue'
+import DynamicBackground from './DynamicBackground.vue'
 
 const router = useRouter()
 const appHeader = ref(null)

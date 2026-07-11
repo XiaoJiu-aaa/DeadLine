@@ -1,7 +1,7 @@
 <template>
   <div class="dynamic-bg">
     <!-- Theme Slider -->
-    <div class="theme-slider" ref="themeSlider">
+    <div v-if="props.showThemeSlider" class="theme-slider" ref="themeSlider">
       <div class="slider-thumb" ref="sliderThumb"></div>
       <button
         v-for="opt in themes"
@@ -27,6 +27,10 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+
+const props = defineProps({
+  showThemeSlider: { type: Boolean, default: true },
+})
 
 const canvas = ref(null)
 const sliderThumb = ref(null)
