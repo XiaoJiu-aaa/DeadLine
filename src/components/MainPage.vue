@@ -54,7 +54,7 @@
       @toggleComplete="onTaskToggleComplete"
     />
 
-    <CelebrationEffect :trigger="celebrateTrigger" />
+    <CelebrationEffect :trigger="celebrateTrigger" @done="isCelebrating = false" />
   </div>
 </template>
 
@@ -87,6 +87,7 @@ const specialDays = ref([])
 const tasks = ref([])
 const drawerOpen = ref(false)
 const celebrateTrigger = ref(0)
+const isCelebrating = ref(false)
 
 const tasksForDate = computed(() =>
   tasks.value.filter(t => t.date === selectedDate.value)
@@ -132,10 +133,11 @@ function onSelectDate(dateStr) {
   diaryDate.value = dateStr
   diaryOpen.value = true
 
-  // Celebration: today + all tasks completed + at least one task
-  if (dateStr === todayStr) {
+  // Celebration: today + all tasks completed + at least one task + not already playing
+  if (dateStr === todayStr && !isCelebrating.value) {
     const todayTasks = tasks.value.filter(t => t.date === todayStr)
     if (todayTasks.length > 0 && todayTasks.every(t => t.completed)) {
+      isCelebrating.value = true
       celebrateTrigger.value++
     }
   }
@@ -252,6 +254,18 @@ function onTaskToggleComplete(taskId) {
   if (task) {
     task.completed = !task.completed
     persistTasks()
+
+    // Celebration: today selected + just completed last task + not already playing
+    if (task.completed && !isCelebrating.value) {
+      const todayStr = formatDate(new Date())
+      if (selectedDate.value === todayStr) {
+        const todayTasks = tasks.value.filter(t => t.date === todayStr)
+        if (todayTasks.length > 0 && todayTasks.every(t => t.completed)) {
+          isCelebrating.value = true
+          celebrateTrigger.value++
+        }
+      }
+    }
   }
 }
 

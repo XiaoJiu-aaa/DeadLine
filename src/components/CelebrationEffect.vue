@@ -8,6 +8,7 @@ import { ref, watch, onBeforeUnmount } from 'vue'
 const props = defineProps({
   trigger: { type: Number, default: 0 },
 })
+const emit = defineEmits(['done'])
 
 const canvasRef = ref(null)
 const w = ref(window.innerWidth)
@@ -224,6 +225,7 @@ function start() {
     particles = []
     const canvas = canvasRef.value
     if (canvas) canvas.getContext('2d').clearRect(0, 0, w.value, h.value)
+    emit('done')
   }, duration)
 }
 
