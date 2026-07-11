@@ -90,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onBeforeUnmount, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue'
 import { CATEGORIES } from '../utils/helpers.js'
 
 const props = defineProps({
@@ -158,9 +158,6 @@ function initForm() {
 watch(() => props.visible, (v) => {
   if (v) {
     initForm()
-    nextTick(() => {
-      titleInput.value?.focus()
-    })
   } else {
     closeSelect()
   }
@@ -263,6 +260,8 @@ function onSave() {
     pendingAttachments: [...pendingAttachments.value],
   })
 }
+
+defineExpose({ save: onSave })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onClickOutside, true)

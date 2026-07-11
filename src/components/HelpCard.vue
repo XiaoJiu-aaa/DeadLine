@@ -21,6 +21,9 @@
               <kbd>E</kbd><span>标记 / 取消特殊日</span>
             </div>
             <div class="help-row">
+              <kbd>R</kbd><span>编辑已展开的任务</span>
+            </div>
+            <div class="help-row">
               <kbd>Delete</kbd><span>删除已展开的任务</span>
             </div>
             <div class="help-row">

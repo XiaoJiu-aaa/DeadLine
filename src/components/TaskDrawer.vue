@@ -71,6 +71,7 @@
     <div class="edit-connector" :class="{ active: connectorActive }" :style="connectorStyle"></div>
 
     <TaskEditPanel
+      ref="editPanelRef"
       :task="editingTask"
       :dateStr="dateStr"
       :visible="panelVisible"
@@ -98,6 +99,7 @@ const emit = defineEmits(['close', 'create', 'update', 'delete', 'toggleComplete
 const drawerWrapper = ref(null)
 const drawer = ref(null)
 const drawerList = ref(null)
+const editPanelRef = ref(null)
 
 const expandedTaskId = ref(null)
 const editingTaskId = ref(null)
@@ -258,12 +260,27 @@ function onDelete(task) {
 }
 
 function onKeyDown(e) {
-  if (e.key !== 'Delete') return
   const tag = document.activeElement?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA') return
-  if (!expandedTaskId.value) return
-  const task = props.tasks.find(t => t.id === expandedTaskId.value)
-  if (task) onDelete(task)
+
+  if (e.key === 'Delete') {
+    if (!expandedTaskId.value) return
+    const task = props.tasks.find(t => t.id === expandedTaskId.value)
+    if (task) onDelete(task)
+    return
+  }
+
+  if (e.key === 'r' || e.key === 'R') {
+    e.preventDefault()
+    // If already editing, save and close
+    if (panelMode.value === 'edit') {
+      editPanelRef.value?.save()
+      return
+    }
+    if (!expandedTaskId.value) return
+    const task = props.tasks.find(t => t.id === expandedTaskId.value)
+    if (task && !task.completed) openEditPanel(task)
+  }
 }
 
 onMounted(() => {
