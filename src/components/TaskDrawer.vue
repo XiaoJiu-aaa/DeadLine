@@ -188,7 +188,19 @@ function recalcConnector(cardEl) {
 function onListScroll() {
   if (editingTaskId.value) {
     const cardEl = drawerList.value?.querySelector(`[data-task-id="${editingTaskId.value}"]`)
-    if (cardEl) recalcConnector(cardEl)
+    if (cardEl) {
+      recalcConnector(cardEl)
+      // Lock card in visible area
+      const listRect = drawerList.value.getBoundingClientRect()
+      const cardRect = cardEl.getBoundingClientRect()
+      const topGap = cardRect.top - listRect.top
+      const bottomGap = listRect.bottom - cardRect.bottom
+      if (topGap < 0) {
+        drawerList.value.scrollTop += topGap
+      } else if (bottomGap < 0) {
+        drawerList.value.scrollTop -= bottomGap
+      }
+    }
   }
 }
 
