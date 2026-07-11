@@ -145,22 +145,46 @@ watch(diary, autoSave, { deep: true })
   pointer-events: auto;
 }
 
-/* Wood texture */
+/* Wood texture — base */
 .diary-panel::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 16px;
   background:
-    linear-gradient(180deg, #d4a76a 0%, #c89650 2%, #d4a76a 5%, #b8844a 8%,
-                           #d4a76a 12%, #c89650 18%, #d4a76a 25%, #b8844a 30%,
-                           #d4a76a 35%, #c89650 42%, #d4a76a 50%, #b8844a 55%,
-                           #d4a76a 60%, #c89650 68%, #d4a76a 75%, #b8844a 80%,
-                           #d4a76a 85%, #c89650 90%, #d4a76a 95%, #b8844a 100%);
+    /* Subtle grain lines */
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(139, 90, 43, 0.06) 3px,
+      rgba(139, 90, 43, 0.06) 4px,
+      transparent 4px,
+      transparent 7px,
+      rgba(139, 90, 43, 0.03) 7px,
+      rgba(139, 90, 43, 0.03) 8px
+    ),
+    /* Wavy growth rings */
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 12px,
+      rgba(180, 130, 80, 0.08) 12px,
+      rgba(180, 130, 80, 0.08) 14px
+    ),
+    /* Knot simulation */
+    radial-gradient(ellipse 40px 30px at 82% 28%, rgba(100, 60, 20, 0.25) 0%, transparent 70%),
+    radial-gradient(ellipse 30px 20px at 18% 72%, rgba(100, 60, 20, 0.18) 0%, transparent 65%),
+    /* Warm base */
+    linear-gradient(175deg, #deb887 0%, #d2a36a 15%, #c89650 30%, #d4a85a 50%, #c09048 70%, #d2a36a 100%);
   border: 3px solid #8b6914;
-  box-shadow: 6px 6px 24px rgba(0,0,0,0.25), inset 0 1px 3px rgba(255,255,255,0.15);
+  box-shadow:
+    6px 6px 24px rgba(0,0,0,0.22),
+    1px 1px 0 rgba(255,255,255,0.1) inset,
+    -1px -1px 0 rgba(0,0,0,0.05) inset;
   z-index: -1;
   pointer-events: none;
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .diary-date {
@@ -279,5 +303,37 @@ watch(diary, autoSave, { deep: true })
 .diary-textarea:focus {
   border-color: rgba(90,60,20,0.35);
 }
+</style>
 
+<style>
+/* Theme-aware wood tones */
+[data-theme="day"] .diary-panel::before {
+  background:
+    repeating-linear-gradient(180deg, transparent 0px, transparent 3px, rgba(139,90,43,0.06) 3px, rgba(139,90,43,0.06) 4px, transparent 4px, transparent 7px, rgba(139,90,43,0.03) 7px, rgba(139,90,43,0.03) 8px),
+    repeating-linear-gradient(180deg, transparent 0px, transparent 12px, rgba(180,130,80,0.08) 12px, rgba(180,130,80,0.08) 14px),
+    radial-gradient(ellipse 40px 30px at 82% 28%, rgba(100,60,20,0.25) 0%, transparent 70%),
+    radial-gradient(ellipse 30px 20px at 18% 72%, rgba(100,60,20,0.18) 0%, transparent 65%),
+    linear-gradient(175deg, #deb887 0%, #d2a36a 15%, #c89650 30%, #d4a85a 50%, #c09048 70%, #d2a36a 100%);
+  border-color: #8b6914;
+}
+
+[data-theme="evening"] .diary-panel::before {
+  background:
+    repeating-linear-gradient(180deg, transparent 0px, transparent 3px, rgba(100,70,40,0.07) 3px, rgba(100,70,40,0.07) 4px, transparent 4px, transparent 7px, rgba(100,70,40,0.04) 7px, rgba(100,70,40,0.04) 8px),
+    repeating-linear-gradient(180deg, transparent 0px, transparent 13px, rgba(160,100,60,0.1) 13px, rgba(160,100,60,0.1) 15px),
+    radial-gradient(ellipse 40px 30px at 82% 28%, rgba(80,45,15,0.3) 0%, transparent 70%),
+    radial-gradient(ellipse 30px 20px at 18% 72%, rgba(80,45,15,0.22) 0%, transparent 65%),
+    linear-gradient(175deg, #c8946a 0%, #b87a48 15%, #a66b38 30%, #b88040 50%, #a06830 70%, #b87a48 100%);
+  border-color: #7a5c22;
+}
+
+[data-theme="night"] .diary-panel::before {
+  background:
+    repeating-linear-gradient(180deg, transparent 0px, transparent 3px, rgba(60,40,25,0.1) 3px, rgba(60,40,25,0.1) 4px, transparent 4px, transparent 7px, rgba(60,40,25,0.06) 7px, rgba(60,40,25,0.06) 8px),
+    repeating-linear-gradient(180deg, transparent 0px, transparent 14px, rgba(90,60,35,0.12) 14px, rgba(90,60,35,0.12) 16px),
+    radial-gradient(ellipse 40px 30px at 82% 28%, rgba(50,30,10,0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 30px 20px at 18% 72%, rgba(50,30,10,0.25) 0%, transparent 65%),
+    linear-gradient(175deg, #6b4c3a 0%, #5a3a28 15%, #4d3020 30%, #5a3a28 50%, #453020 70%, #5a3a28 100%);
+  border-color: #4a3520;
+}
 </style>
