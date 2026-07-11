@@ -1,5 +1,5 @@
 <template>
-  <div class="main-page" @click="onPageClick" @mousemove="onGlowMove" ref="mainPageRef">
+  <div class="main-page" :class="{ ready: pageReady }" @click="onPageClick" @mousemove="onGlowMove" ref="mainPageRef">
     <!-- Dynamic background particles -->
     <DynamicBackground :showThemeSlider="false" />
 
@@ -43,6 +43,7 @@ const router = useRouter()
 const appHeader = ref(null)
 const backdropActive = ref(false)
 const pageGlow = ref(null)
+const pageReady = ref(false)
 
 // Ceiling lamp
 const lampOn = ref(true)
@@ -111,6 +112,12 @@ onMounted(() => {
     }
   })
   themeObserver.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] })
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      pageReady.value = true
+    })
+  })
 })
 
 onBeforeUnmount(() => {
@@ -317,6 +324,28 @@ onBeforeUnmount(() => {
 
 .ceiling-lamp.off .lamp-light {
   opacity: 0;
+}
+
+/* ===== Entry animation ===== */
+.main-page :deep(.app-header) {
+  transform: translateY(-100%);
+  transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.main-page.ready :deep(.app-header) {
+  transform: translateY(0);
+}
+
+.main-page :deep(.calendar-wrapper) {
+  opacity: 0;
+  transform: translateY(60px) scale(0.95);
+  transition: opacity 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) 0.12s,
+              transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) 0.12s;
+}
+
+.main-page.ready :deep(.calendar-wrapper) {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 </style>

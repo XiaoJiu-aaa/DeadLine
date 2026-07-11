@@ -24,13 +24,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import SettingsPanel from './SettingsPanel.vue'
 
 const emit = defineEmits(['settingsAction'])
 
 const settingsPanel = ref(null)
 const sliderThumb = ref(null)
+let themeObserver = null
 
 const sunIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`
 const sunsetIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 18a5 5 0 0 0-10 0"/><path d="M12 9V2M4.22 10.22l1.42 1.42M1 18h2M21 18h2M18.36 11.64l1.42 1.42"/><path d="M7 18h10"/></svg>`
@@ -56,6 +57,27 @@ function handleAction(action) {
 function closeDropdowns() {
   settingsPanel.value?.close()
 }
+
+function syncThumb() {
+  const theme = document.body.getAttribute('data-theme')
+  if (theme && sliderThumb.value) {
+    sliderThumb.value.style.left = thumbPositions[theme] + 'px'
+  }
+}
+
+onMounted(() => {
+  syncThumb()
+  themeObserver = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.attributeName === 'data-theme') syncThumb()
+    }
+  })
+  themeObserver.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] })
+})
+
+onBeforeUnmount(() => {
+  if (themeObserver) themeObserver.disconnect()
+})
 
 defineExpose({ closeDropdowns })
 </script>

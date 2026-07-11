@@ -53,6 +53,13 @@ let ctx = null
 
 const thumbPositions = { day: 4, evening: 44, night: 84 }
 
+function getAutoTheme() {
+  const hour = new Date().getHours()
+  if (hour >= 6 && hour < 17) return 'day'
+  if (hour >= 17 && hour < 20) return 'evening'
+  return 'night'
+}
+
 function resizeCanvas() {
   const c = canvas.value
   if (!c) return
@@ -225,6 +232,10 @@ onMounted(() => {
   ctx = c.getContext('2d')
   resizeCanvas()
   window.addEventListener('resize', resizeCanvas)
+
+  // Auto-detect theme from system time on first entry
+  setTheme(getAutoTheme())
+
   createParticles()
   animate()
 })
