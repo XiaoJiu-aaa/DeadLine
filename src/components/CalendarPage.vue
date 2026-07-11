@@ -49,13 +49,38 @@
             >
               <span class="cell-date">{{ cell.day }}</span>
 
-              <!-- Crayon X for past dates -->
-              <svg v-if="cell.isPast" class="crayon-x" viewBox="0 0 24 24" fill="none" style="overflow:visible">
+              <!-- Crayon X for past dates (non-important, non-special) -->
+              <svg v-if="cell.isPast && !cell.isImportant && !cell.isSpecial" class="crayon-x" viewBox="0 0 24 24" fill="none" style="overflow:visible">
                 <path d="M5.5 4.5C7 6 8.5 7.5 10 9C11.5 10.5 12.5 12 12.5 13C12.5 14 13 15 14 16C15.5 17.5 17 18.5 19 20" stroke="#F44" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M4 3C6 5 7.5 7 9.5 9C11 10.5 12 12 12 13.5C12 15 13.5 16.5 15 17.5C17 18.5 18.5 19.5 20.5 21.5" stroke="#F44" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M5.5 19.5C7 18 8.5 16.5 10 15C11.5 13.5 12.5 12 12.5 11C12.5 10 13 9 14 8C15.5 6.5 17 5.5 19 4" stroke="#F44" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M4 21C6 19 7.5 17 9.5 15C11 13.5 12 12 12 10.5C12 9 13.5 7.5 15 6.5C17 5.5 18.5 4.5 20.5 2.5" stroke="#F44" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M7 3.5C8.5 5 10 7.5 12.5 11.5C13.5 14 15 16 18.5 19.5" stroke="#F44" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+
+              <!-- Crayon Heart for important days -->
+              <svg v-if="cell.isImportant" class="crayon-heart" viewBox="0 0 24 24" fill="none" style="overflow:visible">
+                <!-- Thick main outline — slightly irregular -->
+                <path d="M12 20.5C12 20.5 4 14.5 4 9.5C4 6.8 5.5 5 8 5C9.5 5 11 5.8 12 7.2C13 5.8 14.5 5 16 5C18.5 5 20 6.8 20 9.5C20 14.5 12 20.5 12 20.5Z" stroke="#F44" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Thin accent — offset slightly -->
+                <path d="M12 19.8C12 19.8 4.5 14 4.5 9.5C4.5 7 5.8 5.5 7.8 5.5C9.3 5.5 10.5 6.3 11.5 7.5" stroke="#F44" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 19.8C12 19.8 19.5 14 19.5 9.5C19.5 7 18.2 5.5 16.2 5.5C14.7 5.5 13.5 6.3 12.5 7.5" stroke="#F44" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Tiny texture strokes -->
+                <path d="M7.5 7C8.5 6.2 9.5 7 10.5 8" stroke="#F44" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M16.5 7C15.5 6.2 14.5 7 13.5 8" stroke="#F44" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M11.5 10C11.5 9 12 8 12 7.5" stroke="#F44" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+
+              <!-- Crayon Circle for special days -->
+              <svg v-if="cell.isSpecial" class="crayon-circle" viewBox="0 0 24 24" fill="none" style="overflow:visible">
+                <!-- Thick hand-drawn circle — made of arcs, not perfect circle -->
+                <path d="M4 12C4 7.6 7.6 4 12 4C16.4 4 20 7.6 20 12C20 16.4 16.4 20 12 20C7.6 20 4 16.4 4 12Z" stroke="#4A90D9" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Thin offset arc — partial -->
+                <path d="M4.5 11.5C4.5 7.3 7.8 4.5 11.8 4.5C15.8 4.5 19.5 7.3 19.5 11.5" stroke="#4A90D9" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M19.5 12.5C19.5 16.7 16.2 19.5 12.2 19.5C8.2 19.5 4.5 16.7 4.5 12.5" stroke="#4A90D9" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Scribble accent -->
+                <path d="M7 8.5C9 7 11 6.5 13 7" stroke="#4A90D9" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M17 15.5C15 17 13 17.5 11 17" stroke="#4A90D9" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
 
               <!-- Task dots placeholder -->
@@ -77,6 +102,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+
+const props = defineProps({
+  importantDays: { type: Array, default: () => [] },
+  specialDays: { type: Array, default: () => [] },
+})
 
 const emit = defineEmits(['selectDate'])
 
@@ -176,8 +206,12 @@ const cells = computed(() => {
         'today': dateStr === todayStr,
         'selected': dateStr === selectedDate.value,
         'past-date': cellDate < todayStart,
+        'important': props.importantDays.includes(dateStr),
+        'special': props.specialDays.includes(dateStr),
       },
       isPast: cellDate < todayStart,
+      isImportant: props.importantDays.includes(dateStr),
+      isSpecial: props.specialDays.includes(dateStr),
       dots: [],
     })
     idx++
@@ -376,7 +410,8 @@ onBeforeUnmount(() => {
     0 2px 4px rgba(0,0,0,0.06),
     0 8px 24px var(--cal-page-shadow),
     0 20px 50px var(--cal-page-shadow-warm);
-  overflow: hidden;
+  overflow: clip;
+  transform-style: preserve-3d;
   transition: background 0.8s cubic-bezier(0.4, 0, 0.2, 1),
               box-shadow 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -541,12 +576,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4px 2px;
+  justify-content: center;
+  padding: 6px 2px;
   cursor: pointer;
   border-radius: 8px;
   transition: background 0.2s ease;
   user-select: none;
   min-height: 68px;
+  transform-style: preserve-3d;
 }
 
 .calendar-cell:hover {
@@ -570,7 +607,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   transition: all 0.2s ease;
   position: relative;
-  z-index: 1;
+  z-index: 3;
   flex-shrink: 0;
 }
 
@@ -616,6 +653,29 @@ onBeforeUnmount(() => {
   height: calc(100% - 10px);
   pointer-events: none;
   z-index: 2;
+  opacity: 0.85;
+}
+
+/* Crayon Heart */
+.calendar-cell .crayon-heart {
+  position: absolute;
+  inset: 5px;
+  width: calc(100% - 10px);
+  height: calc(100% - 10px);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.85;
+}
+
+/* Crayon Circle */
+.calendar-cell .crayon-circle {
+  position: absolute;
+  inset: 5px;
+  width: calc(100% - 10px);
+  height: calc(100% - 10px);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.85;
 }
 
 /* Color Dots */

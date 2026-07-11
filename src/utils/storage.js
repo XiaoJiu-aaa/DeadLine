@@ -74,6 +74,57 @@ function hashPassword(pwd) {
   return btoa(unescape(encodeURIComponent(pwd)))
 }
 
+// ===== Important Days =====
+export function getImportantDays(username) {
+  const user = getUserData(username)
+  return (user && user.importantDays) ? user.importantDays : []
+}
+
+export function toggleImportantDay(username, dateStr) {
+  const data = read()
+  if (!data.users[username]) return null
+  if (!data.users[username].importantDays) data.users[username].importantDays = []
+  if (!data.users[username].specialDays) data.users[username].specialDays = []
+  const imp = data.users[username].importantDays
+  const sp = data.users[username].specialDays
+  const idx = imp.indexOf(dateStr)
+  if (idx === -1) {
+    // Remove from special if exists (mutual exclusion)
+    const spIdx = sp.indexOf(dateStr)
+    if (spIdx !== -1) sp.splice(spIdx, 1)
+    imp.push(dateStr)
+  } else {
+    imp.splice(idx, 1)
+  }
+  write(data)
+  return { importantDays: imp, specialDays: sp }
+}
+
+// ===== Special Days (circle) =====
+export function getSpecialDays(username) {
+  const user = getUserData(username)
+  return (user && user.specialDays) ? user.specialDays : []
+}
+
+export function toggleSpecialDay(username, dateStr) {
+  const data = read()
+  if (!data.users[username]) return null
+  if (!data.users[username].importantDays) data.users[username].importantDays = []
+  if (!data.users[username].specialDays) data.users[username].specialDays = []
+  const imp = data.users[username].importantDays
+  const sp = data.users[username].specialDays
+  const idx = sp.indexOf(dateStr)
+  if (idx === -1) {
+    const impIdx = imp.indexOf(dateStr)
+    if (impIdx !== -1) imp.splice(impIdx, 1)
+    sp.push(dateStr)
+  } else {
+    sp.splice(idx, 1)
+  }
+  write(data)
+  return { importantDays: imp, specialDays: sp }
+}
+
 // ===== Diary =====
 export function getDiary(username, dateStr) {
   const user = getUserData(username)

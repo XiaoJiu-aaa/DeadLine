@@ -23,26 +23,36 @@
     <div class="dropdown-backdrop" :class="{ active: backdropActive }"></div>
 
     <!-- Header -->
-    <AppHeader ref="appHeader" @settingsAction="handleSettingsAction" />
+    <AppHeader
+      ref="appHeader"
+      :selectedDate="selectedDate"
+      :isImportant="isImportant"
+      :isSpecial="isSpecial"
+      :canMark="canMark"
+      @settingsAction="handleSettingsAction"
+      @toggleImportant="onToggleImportant"
+      @toggleSpecial="onToggleSpecial"
+    />
 
     <!-- Day Diary Panel -->
     <DayDiary :dateStr="diaryDate" :visible="diaryOpen" @close="closeDiary" />
 
     <!-- Main Content -->
     <div class="main-content">
-      <CalendarPage ref="calendarRef" @selectDate="onSelectDate" />
+      <CalendarPage ref="calendarRef" :importantDays="importantDays" :specialDays="specialDays" @selectDate="onSelectDate" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from './AppHeader.vue'
 import CalendarPage from './CalendarPage.vue'
 import DynamicBackground from './DynamicBackground.vue'
 import DayDiary from './DayDiary.vue'
 import { clearOldAttachments } from '../utils/db.js'
+import { getCurrentUser, getImportantDays, toggleImportantDay, getSpecialDays, toggleSpecialDay } from '../utils/storage.js'
 
 const router = useRouter()
 const appHeader = ref(null)
@@ -52,16 +62,58 @@ const pageGlow = ref(null)
 const pageReady = ref(false)
 const diaryOpen = ref(false)
 const diaryDate = ref('')
+const selectedDate = ref('')
+const importantDays = ref([])
+const specialDays = ref([])
+
+const isImportant = computed(() => importantDays.value.includes(selectedDate.value))
+const isSpecial = computed(() => specialDays.value.includes(selectedDate.value))
+const canMark = computed(() => {
+  if (!selectedDate.value) return false
+  return selectedDate.value >= new Date().toISOString().split('T')[0]
+})
+
+function loadImportantDays() {
+  const user = getCurrentUser()
+  if (user) {
+    importantDays.value = getImportantDays(user)
+    specialDays.value = getSpecialDays(user)
+  }
+}
 
 function onSelectDate(dateStr) {
+  selectedDate.value = dateStr
   const todayStr = new Date().toISOString().split('T')[0]
   if (dateStr > todayStr) return
   diaryDate.value = dateStr
   diaryOpen.value = true
 }
 
+function onToggleImportant() {
+  if (!canMark.value) return
+  const user = getCurrentUser()
+  if (!user) return
+  const result = toggleImportantDay(user, selectedDate.value)
+  if (result) {
+    importantDays.value = result.importantDays
+    specialDays.value = result.specialDays
+  }
+}
+
+function onToggleSpecial() {
+  if (!canMark.value) return
+  const user = getCurrentUser()
+  if (!user) return
+  const result = toggleSpecialDay(user, selectedDate.value)
+  if (result) {
+    importantDays.value = result.importantDays
+    specialDays.value = result.specialDays
+  }
+}
+
 function closeDiary() {
   diaryOpen.value = false
+  selectedDate.value = ''
   calendarRef.value?.clearSelection()
 }
 
@@ -140,6 +192,7 @@ function onKeyDown(e) {
 onMounted(() => {
   document.addEventListener('keydown', onKeyDown)
   document.body.setAttribute('data-theme', 'day')
+  loadImportantDays()
 
   syncTheme()
   themeObserver = new MutationObserver((mutations) => {
