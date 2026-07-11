@@ -42,7 +42,20 @@ export function getTaskStatus(task, todayStr) {
     if (today > ls) return 'urgent'
   }
   if (taskDay < today) return 'overdue'
-  if (task.date === todayStr) return 'today'
+  if (task.date === todayStr) {
+    // For today's non-all-day tasks, check if the end time has passed
+    if (!task.isAllDay && task.timeLabel) {
+      const endTime = task.timeLabel.split('–')[1]?.trim()
+      if (endTime) {
+        const [h, m] = endTime.split(':').map(Number)
+        const now = new Date()
+        const end = new Date()
+        end.setHours(h, m, 0, 0)
+        if (now > end) return 'overdue'
+      }
+    }
+    return 'today'
+  }
   return 'normal'
 }
 
