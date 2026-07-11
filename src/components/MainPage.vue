@@ -311,10 +311,11 @@ function onGlowMove(e) {
 // clicks that pass through the dropdown panels.
 function onPageClick(e) {
   appHeader.value?.closeDropdowns()
-  if (drawerOpen.value && !e.target.closest('.drawer-wrapper')) {
+  const inDrawer = e.target.closest('.drawer-wrapper')
+  if (drawerOpen.value && !inDrawer) {
     closeDrawer()
   }
-  if (diaryOpen.value && !e.target.closest('.diary-group')) {
+  if (diaryOpen.value && !e.target.closest('.diary-group') && !inDrawer) {
     closeDiary()
   }
 }

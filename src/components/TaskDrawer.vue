@@ -207,6 +207,9 @@ function onListScroll() {
 // Panel open/close
 function openNewPanel() {
   if (isPastDate.value) return
+  if (panelMode.value === 'edit') {
+    editPanelRef.value?.save()
+  }
   expandedTaskId.value = null
   editingTaskId.value = null
   panelMode.value = 'new'
