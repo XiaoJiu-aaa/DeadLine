@@ -1,5 +1,8 @@
 <template>
-  <div class="main-page" @click="onPageClick">
+  <div class="main-page" @click="onPageClick" @mousemove="onGlowMove" ref="mainPageRef">
+    <!-- Mouse-follow glow -->
+    <div class="page-glow" ref="pageGlow"></div>
+
     <!-- Click-away backdrop -->
     <div class="dropdown-backdrop" :class="{ active: backdropActive }"></div>
 
@@ -22,6 +25,13 @@ import CalendarPage from './CalendarPage.vue'
 const router = useRouter()
 const appHeader = ref(null)
 const backdropActive = ref(false)
+const pageGlow = ref(null)
+
+function onGlowMove(e) {
+  const x = (e.clientX / window.innerWidth) * 100
+  const y = (e.clientY / window.innerHeight) * 100
+  pageGlow.value.style.background = `radial-gradient(circle 300px at ${x}% ${y}%, var(--accent-glow), transparent 70%)`
+}
 
 // Watch for dropdown state changes using MutationObserver or events.
 // For simplicity, backdrop is always "ready" — the actual backdrop intercepts
@@ -130,6 +140,15 @@ onBeforeUnmount(() => {
   background: linear-gradient(170deg, var(--bg-from) 0%, var(--bg-to) 100%);
   transition: background var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+}
+
+.page-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(circle 300px at 50% 50%, var(--accent-glow), transparent 70%);
+  transition: opacity 0.6s ease;
 }
 
 /* Desktop texture overlay */
