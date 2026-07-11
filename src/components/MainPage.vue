@@ -53,6 +53,8 @@
       @delete="onTaskDelete"
       @toggleComplete="onTaskToggleComplete"
     />
+
+    <CelebrationEffect :trigger="celebrateTrigger" />
   </div>
 </template>
 
@@ -64,6 +66,7 @@ import CalendarPage from './CalendarPage.vue'
 import DynamicBackground from './DynamicBackground.vue'
 import DayDiary from './DayDiary.vue'
 import TaskDrawer from './TaskDrawer.vue'
+import CelebrationEffect from './CelebrationEffect.vue'
 import { clearOldAttachments } from '../utils/db.js'
 import { saveFile, deleteFiles, getFile } from '../utils/db.js'
 import { getCurrentUser, getImportantDays, toggleImportantDay, getSpecialDays, toggleSpecialDay, getAllTasks, saveAllTasks } from '../utils/storage.js'
@@ -83,6 +86,7 @@ const importantDays = ref([])
 const specialDays = ref([])
 const tasks = ref([])
 const drawerOpen = ref(false)
+const celebrateTrigger = ref(0)
 
 const tasksForDate = computed(() =>
   tasks.value.filter(t => t.date === selectedDate.value)
@@ -127,6 +131,14 @@ function onSelectDate(dateStr) {
   }
   diaryDate.value = dateStr
   diaryOpen.value = true
+
+  // Celebration: today + all tasks completed + at least one task
+  if (dateStr === todayStr) {
+    const todayTasks = tasks.value.filter(t => t.date === todayStr)
+    if (todayTasks.length > 0 && todayTasks.every(t => t.completed)) {
+      celebrateTrigger.value++
+    }
+  }
 }
 
 function onToggleImportant() {
