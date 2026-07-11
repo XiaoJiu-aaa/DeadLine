@@ -12,7 +12,22 @@
         <!-- Calendar Page -->
         <div class="calendar-page">
           <div class="calendar-header">
-            <span class="month-title">{{ currentYear }} 年 {{ currentMonth + 1 }} 月</span>
+            <span class="month-title" v-if="!editing" @click="startEdit">{{ currentYear }} 年 {{ currentMonth + 1 }} 月</span>
+            <span class="month-title edit-mode" v-else @focusout="onEditFocusout">
+              <input
+                ref="yearInput"
+                v-model="editYear"
+                class="title-input"
+                @keydown.enter="confirmEdit"
+                @keydown.escape="cancelEdit"
+              /> 年
+              <input
+                v-model="editMonth"
+                class="title-input"
+                @keydown.enter="confirmEdit"
+                @keydown.escape="cancelEdit"
+              /> 月
+            </span>
             <div class="month-nav">
               <button @click="flipMonth(-1)" aria-label="上个月">&#9666;</button>
               <button class="today-btn" @click="goToToday">今天</button>
@@ -70,6 +85,53 @@ const currentMonth = ref(today.getMonth())
 const currentYear = ref(today.getFullYear())
 const selectedDate = ref(todayStr)
 const isFlipping = ref(false)
+
+// Inline year/month editing
+const editing = ref(false)
+const editYear = ref(today.getFullYear())
+const editMonth = ref(today.getMonth() + 1)
+const yearInput = ref(null)
+const minYear = today.getFullYear() - 50
+const maxYear = today.getFullYear() + 100
+
+function startEdit() {
+  editYear.value = currentYear.value
+  editMonth.value = currentMonth.value + 1
+  editing.value = true
+  requestAnimationFrame(() => yearInput.value?.select())
+}
+
+function cancelEdit() {
+  editing.value = false
+}
+
+function onEditFocusout() {
+  // Delay so click between the two inputs doesn't prematurely close edit mode
+  setTimeout(() => {
+    if (!editing.value) return
+    const active = document.activeElement
+    if (!active || !active.classList.contains('title-input')) {
+      confirmEdit()
+    }
+  }, 100)
+}
+
+function confirmEdit() {
+  if (!editing.value) return
+  let y = parseInt(editYear.value, 10)
+  let m = parseInt(editMonth.value, 10)
+
+  if (isNaN(y) || isNaN(m) || m < 1 || m > 12 || y < minYear || y > maxYear) {
+    editYear.value = currentYear.value
+    editMonth.value = currentMonth.value + 1
+    editing.value = false
+    return
+  }
+
+  currentYear.value = y
+  currentMonth.value = m - 1
+  editing.value = false
+}
 
 function fmtDate(d) {
   const y = d.getFullYear()
@@ -362,6 +424,41 @@ onBeforeUnmount(() => {
   color: var(--cal-text-color);
   letter-spacing: 3px;
   transition: color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.month-title:hover {
+  opacity: 0.7;
+}
+
+.month-title.edit-mode {
+  cursor: default;
+  opacity: 1;
+}
+
+.title-input {
+  width: 72px;
+  padding: 2px 6px;
+  font-family: "Noto Serif SC", serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--cal-text-color);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--cal-selected-bg);
+  border-radius: 0;
+  outline: none;
+  text-align: center;
+  letter-spacing: 3px;
+  transition: border-color 0.2s ease;
+  -moz-appearance: textfield;
+}
+
+.title-input::-webkit-outer-spin-button,
+.title-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .month-nav {
