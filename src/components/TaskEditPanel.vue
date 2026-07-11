@@ -19,7 +19,7 @@
             <option value="study">学习</option>
             <option value="work">工作</option>
             <option value="life">生活</option>
-            <option value="club">社团</option>
+            <option value="club">其他</option>
           </select>
           <div class="ntp-select-trigger" :class="{ open: selectOpen }" tabindex="0" role="combobox" @click="toggleSelect" @keydown.enter="toggleSelect" @keydown.space.prevent="toggleSelect" @keydown.escape="closeSelect">
             <span :class="{ 'ntp-select-placeholder': !form.category }">{{ categoryLabel || '选择分类' }}</span>
@@ -84,7 +84,7 @@
       <div class="ntp-select-option" :class="{ selected: form.category === 'study' }" data-value="study" @click="selectCategory('study')">学习</div>
       <div class="ntp-select-option" :class="{ selected: form.category === 'work' }" data-value="work" @click="selectCategory('work')">工作</div>
       <div class="ntp-select-option" :class="{ selected: form.category === 'life' }" data-value="life" @click="selectCategory('life')">生活</div>
-      <div class="ntp-select-option" :class="{ selected: form.category === 'club' }" data-value="club" @click="selectCategory('club')">社团</div>
+      <div class="ntp-select-option" :class="{ selected: form.category === 'club' }" data-value="club" @click="selectCategory('club')">其他</div>
     </div>
   </Teleport>
 </template>

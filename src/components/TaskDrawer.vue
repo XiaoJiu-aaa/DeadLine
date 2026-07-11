@@ -279,6 +279,14 @@ function onResize() {
   }
 }
 
+watch(() => props.visible, (v) => {
+  if (!v) {
+    expandedTaskId.value = null
+    editingTaskId.value = null
+    closePanel()
+  }
+})
+
 defineExpose({})
 </script>
 

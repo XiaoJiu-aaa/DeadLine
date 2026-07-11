@@ -50,5 +50,5 @@ export const CATEGORIES = {
   study: { label: '学习', color: '#4A90D9' },
   life: { label: '生活', color: '#5CB85C' },
   work: { label: '工作', color: '#F5A623' },
-  club: { label: '社团', color: '#9B59B6' },
+  club: { label: '其他', color: '#9B59B6' },
 }

@@ -46,12 +46,12 @@ const emit = defineEmits(['update:modelValue'])
 
 const dropdownOpen = ref(false)
 
-const catNames = { study: '学习', life: '生活', work: '工作', club: '社团' }
+const catNames = { study: '学习', life: '生活', work: '工作', club: '其他' }
 const categories = [
   { key: 'study', label: '学习' },
   { key: 'life', label: '生活' },
   { key: 'work', label: '工作' },
-  { key: 'club', label: '社团' },
+  { key: 'club', label: '其他' },
 ]
 
 const label = computed(() => {
