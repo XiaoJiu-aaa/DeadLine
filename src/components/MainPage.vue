@@ -3,6 +3,19 @@
     <!-- Dynamic background particles -->
     <DynamicBackground :showThemeSlider="false" />
 
+    <!-- Ceiling lamp (night theme) -->
+    <div
+      class="ceiling-lamp"
+      :class="{ visible: isNight, off: !lampOn }"
+      @click.stop="toggleLamp"
+    >
+      <div class="lamp-cord"></div>
+      <div class="lamp-shade">
+        <div class="lamp-bulb"></div>
+      </div>
+      <div class="lamp-light"></div>
+    </div>
+
     <!-- Mouse-follow glow -->
     <div class="page-glow" ref="pageGlow"></div>
 
@@ -30,6 +43,21 @@ const router = useRouter()
 const appHeader = ref(null)
 const backdropActive = ref(false)
 const pageGlow = ref(null)
+
+// Ceiling lamp
+const lampOn = ref(true)
+const isNight = ref(false)
+let themeObserver = null
+
+function toggleLamp() {
+  lampOn.value = !lampOn.value
+}
+
+function syncTheme() {
+  const theme = document.body.getAttribute('data-theme')
+  isNight.value = theme === 'night'
+  if (isNight.value) lampOn.value = true
+}
 
 function onGlowMove(e) {
   const x = (e.clientX / window.innerWidth) * 100
@@ -75,10 +103,19 @@ function onKeyDown(e) {
 onMounted(() => {
   document.addEventListener('keydown', onKeyDown)
   document.body.setAttribute('data-theme', 'day')
+
+  syncTheme()
+  themeObserver = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.attributeName === 'data-theme') syncTheme()
+    }
+  })
+  themeObserver.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] })
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeyDown)
+  if (themeObserver) themeObserver.disconnect()
 })
 </script>
 
@@ -198,6 +235,87 @@ onBeforeUnmount(() => {
   justify-content: center;
   position: relative;
   z-index: 1;
+}
+
+/* ===== Ceiling Lamp ===== */
+.ceiling-lamp {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(-290px);
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 1.6s cubic-bezier(0.34, 0.1, 0.5, 1);
+  filter: drop-shadow(0 0 12px rgba(255, 220, 150, 0.3));
+}
+
+.ceiling-lamp.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+.lamp-cord {
+  width: 2px;
+  height: 44px;
+  background: linear-gradient(180deg, #555 0%, #777 100%);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.lamp-shade {
+  width: 72px;
+  height: 48px;
+  background: linear-gradient(180deg, #5a5a5a 0%, #3d3d3d 30%, #4a4a4a 100%);
+  clip-path: polygon(25% 0%, 75% 0%, 92% 100%, 8% 100%);
+  position: relative;
+  border-radius: 3px 3px 0 0;
+  transition: background 0.6s ease;
+}
+
+.ceiling-lamp.off .lamp-shade {
+  background: linear-gradient(180deg, #444 0%, #2e2e2e 30%, #383838 100%);
+}
+
+.lamp-bulb {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 18px;
+  background: radial-gradient(circle at 50% 30%, rgba(255, 245, 210, 0.95) 0%, rgba(255, 210, 130, 0.9) 60%, rgba(255, 180, 80, 0.6) 100%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 18px rgba(255, 225, 160, 0.9),
+    0 0 45px rgba(255, 200, 120, 0.5),
+    0 0 70px rgba(255, 180, 90, 0.25);
+  transition: all 0.6s ease;
+}
+
+.ceiling-lamp.off .lamp-bulb {
+  background: radial-gradient(circle at 50% 30%, rgba(180, 175, 160, 0.6) 0%, rgba(150, 145, 130, 0.4) 60%, rgba(120, 115, 100, 0.2) 100%);
+  box-shadow: 0 0 6px rgba(150, 145, 130, 0.3), 0 0 15px rgba(130, 125, 110, 0.1);
+}
+
+.lamp-light {
+  position: absolute;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 420px;
+  height: 560px;
+  background:
+    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(255, 235, 180, 0.25) 0%, rgba(255, 220, 150, 0.08) 40%, transparent 75%),
+    linear-gradient(180deg, rgba(255, 235, 180, 0.18) 0%, rgba(255, 220, 140, 0.06) 35%, transparent 100%);
+  clip-path: polygon(38% 0%, 62% 0%, 95% 100%, 5% 100%);
+  pointer-events: none;
+  transition: opacity 0.7s ease;
+}
+
+.ceiling-lamp.off .lamp-light {
+  opacity: 0;
 }
 
 </style>
