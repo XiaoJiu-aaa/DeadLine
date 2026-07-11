@@ -261,8 +261,6 @@ function onSave() {
   })
 }
 
-defineExpose({ save: onSave })
-
 onBeforeUnmount(() => {
   document.removeEventListener('click', onClickOutside, true)
   window.removeEventListener('scroll', positionDropdown, true)
