@@ -71,19 +71,22 @@ function createParticles() {
   const h = window.innerHeight
 
   if (currentTheme.value === 'day') {
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 90; i++) {
+      const bright = Math.random() < 0.15
       particles.push({
         x: Math.random() * w,
         y: Math.random() * h,
-        r: Math.random() * 2.5 + 0.8,
+        r: bright ? Math.random() * 3.5 + 2 : Math.random() * 3 + 1.5,
         speedX: (Math.random() - 0.5) * 0.3,
-        speedY: -Math.random() * 0.4 - 0.1,
-        opacity: Math.random() * 0.5 + 0.2,
+        speedY: -Math.random() * 0.5 - 0.15,
+        opacity: bright ? Math.random() * 0.3 + 0.7 : Math.random() * 0.45 + 0.35,
         pulseSpeed: Math.random() * 0.02 + 0.005,
         pulseOffset: Math.random() * Math.PI * 2,
-        color: Math.random() < 0.7
-          ? `rgba(220, 190, 140, OPACITY)`
-          : `rgba(255, 220, 170, OPACITY)`,
+        color: bright
+          ? `rgba(255, 235, 180, OPACITY)`
+          : Math.random() < 0.7
+            ? `rgba(235, 200, 150, OPACITY)`
+            : `rgba(255, 225, 175, OPACITY)`,
       })
     }
   } else if (currentTheme.value === 'night') {
