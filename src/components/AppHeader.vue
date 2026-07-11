@@ -6,7 +6,6 @@
     </div>
 
     <div class="header-actions">
-      <CategoryFilter ref="categoryFilter" v-model="activeCategories" />
       <SettingsPanel ref="settingsPanel" @action="handleAction" />
     </div>
 
@@ -26,13 +25,10 @@
 
 <script setup>
 import { ref } from 'vue'
-import CategoryFilter from './CategoryFilter.vue'
 import SettingsPanel from './SettingsPanel.vue'
 
-const emit = defineEmits(['update:activeCategories', 'settingsAction'])
+const emit = defineEmits(['settingsAction'])
 
-const activeCategories = ref(['study', 'life', 'work', 'club'])
-const categoryFilter = ref(null)
 const settingsPanel = ref(null)
 const sliderThumb = ref(null)
 
@@ -58,7 +54,6 @@ function handleAction(action) {
 }
 
 function closeDropdowns() {
-  categoryFilter.value?.close()
   settingsPanel.value?.close()
 }
 

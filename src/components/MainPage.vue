@@ -8,10 +8,7 @@
 
     <!-- Main Content -->
     <div class="main-content">
-      <div class="placeholder-card">
-        <h2>3D 台历区域</h2>
-        <p>日历 + 抽屉组件将在后续迭代中实现</p>
-      </div>
+      <CalendarPage />
     </div>
   </div>
 </template>
@@ -20,6 +17,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from './AppHeader.vue'
+import CalendarPage from './CalendarPage.vue'
 
 const router = useRouter()
 const appHeader = ref(null)
@@ -170,29 +168,4 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 
-.placeholder-card {
-  padding: 40px 60px;
-  background: var(--header-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--header-border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-sm);
-  text-align: center;
-  transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.placeholder-card h2 {
-  font-family: "Noto Serif SC", serif;
-  font-size: 20px;
-  color: var(--text-color);
-  letter-spacing: 2px;
-  margin-bottom: 8px;
-}
-
-.placeholder-card p {
-  font-size: 13px;
-  color: var(--text-secondary);
-  letter-spacing: 0.5px;
-}
 </style>
