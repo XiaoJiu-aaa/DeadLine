@@ -39,7 +39,7 @@
 
     <!-- Main Content -->
     <div class="main-content">
-      <CalendarPage ref="calendarRef" :importantDays="importantDays" :specialDays="specialDays" :taskDatesMap="taskDatesMap" @selectDate="onSelectDate" />
+      <CalendarPage ref="calendarRef" :importantDays="importantDays" :specialDays="specialDays" :taskDatesMap="taskDatesMap" :highlightedDate="highlightedDate" @selectDate="onSelectDate" />
     </div>
 
     <!-- Task Drawer -->
@@ -52,6 +52,7 @@
       @update="onTaskUpdate"
       @delete="onTaskDelete"
       @toggleComplete="onTaskToggleComplete"
+      @highlightDate="onHighlightDate"
     />
 
     <CelebrationEffect :trigger="celebrateTrigger" @done="isCelebrating = false" />
@@ -82,6 +83,7 @@ const pageReady = ref(false)
 const diaryOpen = ref(false)
 const diaryDate = ref('')
 const selectedDate = ref('')
+const highlightedDate = ref('')
 const importantDays = ref([])
 const specialDays = ref([])
 const tasks = ref([])
@@ -190,6 +192,10 @@ function persistTasks() {
   if (user) saveAllTasks(user, tasks.value)
 }
 
+function onHighlightDate(dateStr) {
+  highlightedDate.value = dateStr || ''
+}
+
 async function onTaskCreate(formData) {
   const task = {
     id: generateId('t'),
@@ -197,7 +203,7 @@ async function onTaskCreate(formData) {
     date: formData.date,
     isAllDay: formData.isAllDay,
     timeLabel: formData.timeLabel,
-    latestStart: null,
+    latestStart: formData.latestStart || null,
     category: formData.category,
     note: formData.note,
     completed: false,
@@ -225,6 +231,7 @@ async function onTaskUpdate({ id, data }) {
   task.isAllDay = data.isAllDay
   task.timeLabel = data.timeLabel
   task.note = data.note
+  task.latestStart = data.latestStart || null
   // Replace attachments with pending list (handles both add and remove)
   const newAtts = data.pendingAttachments || []
   const newAttachments = []

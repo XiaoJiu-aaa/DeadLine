@@ -94,7 +94,7 @@ const props = defineProps({
   visible: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['close', 'create', 'update', 'delete', 'toggleComplete'])
+const emit = defineEmits(['close', 'create', 'update', 'delete', 'toggleComplete', 'highlightDate'])
 
 const drawerWrapper = ref(null)
 const drawer = ref(null)
@@ -328,6 +328,16 @@ watch(() => props.dateStr, () => {
   } else if (panelMode.value === 'new') {
     closePanel()
   }
+})
+
+const highlightedDate = computed(() => {
+  if (!expandedTaskId.value) return ''
+  const task = props.tasks.find(t => t.id === expandedTaskId.value)
+  return task?.latestStart || ''
+})
+
+watch(highlightedDate, (val) => {
+  emit('highlightDate', val)
 })
 
 defineExpose({})

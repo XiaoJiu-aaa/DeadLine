@@ -26,7 +26,6 @@
             <svg class="ntp-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
         </div>
-        <input class="ntp-input" type="date" v-model="form.date" />
       </div>
 
       <div class="ntp-all-day-row">
@@ -42,6 +41,12 @@
           <input class="ntp-input" type="time" v-model="form.timeStart" />
           <input class="ntp-input" type="time" v-model="form.timeEnd" />
         </div>
+      </div>
+
+      <span class="ntp-label">最迟开始准备</span>
+      <div class="ntp-date-wrap">
+        <input class="ntp-input" :class="{ empty: !form.latestStart }" type="date" v-model="form.latestStart" :max="form.date || props.dateStr" />
+        <span class="ntp-date-placeholder" v-if="!form.latestStart">未设置</span>
       </div>
 
       <span class="ntp-label">备注</span>
@@ -112,6 +117,7 @@ const form = reactive({
   timeStart: '09:00',
   timeEnd: '10:00',
   note: '',
+  latestStart: '',
 })
 
 const pendingAttachments = ref([])
@@ -134,6 +140,7 @@ function initForm() {
     form.date = props.task.date || props.dateStr
     form.isAllDay = props.task.isAllDay || false
     form.note = props.task.note || ''
+    form.latestStart = props.task.latestStart || ''
     if (!props.task.isAllDay && props.task.timeLabel && props.task.timeLabel.includes('–')) {
       const parts = props.task.timeLabel.split('–').map(s => s.trim())
       form.timeStart = parts[0] || '09:00'
@@ -151,6 +158,7 @@ function initForm() {
     form.timeStart = '09:00'
     form.timeEnd = '10:00'
     form.note = ''
+    form.latestStart = ''
     pendingAttachments.value = []
   }
 }
@@ -257,6 +265,7 @@ function onSave() {
     timeStart: form.timeStart,
     timeEnd: form.timeEnd,
     note: form.note.trim(),
+    latestStart: form.latestStart || '',
     pendingAttachments: [...pendingAttachments.value],
   })
 }
@@ -392,6 +401,30 @@ onBeforeUnmount(() => {
 
 .ntp-row { display: flex; gap: 10px; }
 .ntp-row .ntp-input { flex: 1; min-width: 0; }
+
+.ntp-date-wrap {
+  position: relative;
+}
+
+.ntp-date-wrap .ntp-input.empty:not(:focus) {
+  color: transparent;
+}
+
+.ntp-date-placeholder {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--drawer-text-secondary, #999);
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+
+.ntp-date-wrap .ntp-input:focus ~ .ntp-date-placeholder {
+  opacity: 0;
+}
 
 .ntp-select-wrapper { position: relative; flex: 1; min-width: 0; }
 .ntp-select-wrapper .ntp-select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }

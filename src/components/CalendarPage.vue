@@ -88,6 +88,12 @@
                 <span v-for="(dot, di) in cell.dots.slice(0, 5)" :key="di" class="cell-dot" :class="dot"></span>
                 <span v-if="cell.dots.length > 5" class="cell-dots-overflow">+{{ cell.dots.length - 5 }}</span>
               </div>
+
+              <!-- Latest start marker -->
+              <svg v-if="cell.isHighlighted" class="latest-marker" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="#FF6B35" stroke-width="2" fill="rgba(255,107,53,0.15)"/>
+                <polyline points="12 6 12 12 16 14" stroke="#FF6B35" stroke-width="2" stroke-linecap="round"/>
+              </svg>
             </div>
           </div>
         </div>
@@ -107,6 +113,7 @@ const props = defineProps({
   importantDays: { type: Array, default: () => [] },
   specialDays: { type: Array, default: () => [] },
   taskDatesMap: { type: Object, default: () => ({}) },
+  highlightedDate: { type: String, default: '' },
 })
 
 const emit = defineEmits(['selectDate'])
@@ -209,10 +216,12 @@ const cells = computed(() => {
         'past-date': cellDate < todayStart,
         'important': props.importantDays.includes(dateStr),
         'special': props.specialDays.includes(dateStr),
+        'highlighted': dateStr === props.highlightedDate && dateStr <= todayStr,
       },
       isPast: cellDate < todayStart,
       isImportant: props.importantDays.includes(dateStr),
       isSpecial: props.specialDays.includes(dateStr),
+      isHighlighted: dateStr === props.highlightedDate && dateStr <= todayStr,
       dots: props.taskDatesMap[dateStr] || [],
     })
     idx++
@@ -706,6 +715,19 @@ onBeforeUnmount(() => {
   color: var(--cal-text-light);
   font-weight: 600;
   letter-spacing: 0;
+}
+
+/* Latest start marker */
+.latest-marker {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  animation: markerPulse 2s ease-in-out infinite;
+}
+
+@keyframes markerPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 /* Flip overlay */
