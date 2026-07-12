@@ -68,7 +68,6 @@ import DynamicBackground from './DynamicBackground.vue'
 import DayDiary from './DayDiary.vue'
 import TaskDrawer from './TaskDrawer.vue'
 import CelebrationEffect from './CelebrationEffect.vue'
-import { clearOldAttachments } from '../utils/db.js'
 import { saveFile, deleteFiles, getFile } from '../utils/db.js'
 import { getCurrentUser, getImportantDays, toggleImportantDay, getSpecialDays, toggleSpecialDay, getAllTasks, saveAllTasks } from '../utils/storage.js'
 import { generateId, formatDate } from '../utils/helpers.js'
@@ -268,6 +267,18 @@ async function onTaskDelete(taskId) {
   persistTasks()
 }
 
+async function clearArchive() {
+  const cutoff = formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+  const old = tasks.value.filter(t => t.date < cutoff)
+  if (old.length === 0) return
+  const attIds = old.flatMap(t => (t.attachments || []).map(a => a.id))
+  if (attIds.length) {
+    await deleteFiles(attIds).catch(() => {})
+  }
+  tasks.value = tasks.value.filter(t => t.date >= cutoff)
+  persistTasks()
+}
+
 function onTaskToggleComplete(taskId) {
   const task = tasks.value.find(t => t.id === taskId)
   if (task) {
@@ -348,7 +359,7 @@ function handleSettingsAction(action) {
       router.push('/login')
       break
     case 'clearArchive':
-      clearOldAttachments().catch(() => {})
+      clearArchive()
       break
     case 'export':
       exportData()
