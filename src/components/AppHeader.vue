@@ -2,7 +2,7 @@
   <header class="app-header">
     <div class="header-brand">
       <div class="brand-icon">📅</div>
-      <span class="brand-text">待办日程</span>
+      <span class="brand-text">DeadLine</span>
     </div>
 
     <div class="header-actions">

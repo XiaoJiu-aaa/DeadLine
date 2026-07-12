@@ -24,14 +24,14 @@
         <div class="card-glow" ref="cardGlow"></div>
         <div class="card-content">
           <div class="app-icon">📅</div>
-          <h1 class="app-title">待办日程</h1>
-          <p class="app-subtitle">3D 台历 · 日程管理</p>
+          <h1 class="app-title">DeadLine</h1>
+          <p class="app-subtitle">3D Desk Calendar · Task Manager</p>
 
           <form @submit.prevent="handleSubmit" autocomplete="off">
             <div class="form-group">
               <label>用户名</label>
               <div class="input-wrap">
-                <span class="icon">👤</span>
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/></svg></span>
                 <input
                   type="text"
                   v-model="username"
@@ -46,7 +46,7 @@
             <div class="form-group">
               <label>密码</label>
               <div class="input-wrap">
-                <span class="icon">🔒</span>
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 118 0v4"/></svg></span>
                 <input
                   type="password"
                   v-model="password"
@@ -441,10 +441,20 @@ onBeforeUnmount(() => {
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 16px;
-  opacity: 0.5;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.45;
   pointer-events: none;
   transition: opacity 0.25s ease;
+  color: var(--text-secondary);
+}
+
+.input-wrap .icon :deep(svg) {
+  width: 100%;
+  height: 100%;
 }
 
 .form-group input {

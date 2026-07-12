@@ -225,17 +225,29 @@ async function onTaskUpdate({ id, data }) {
   task.isAllDay = data.isAllDay
   task.timeLabel = data.timeLabel
   task.note = data.note
-  // Merge attachments: keep existing ones, add new ones with files
+  // Replace attachments with pending list (handles both add and remove)
   const newAtts = data.pendingAttachments || []
-  const existingIds = new Set(task.attachments.map(a => a.id))
-  const toAdd = newAtts.filter(a => !a.id || !existingIds.has(a.id))
-  for (const att of toAdd) {
-    const attId = generateId('att')
-    if (att._file) {
-      await saveFile(attId, att._file)
+  const newAttachments = []
+  for (const att of newAtts) {
+    if (att.id && !att._file) {
+      // Existing attachment, keep it
+      newAttachments.push({ id: att.id, name: att.name, size: att.size })
+    } else {
+      // New file attachment
+      const attId = generateId('att')
+      if (att._file) {
+        await saveFile(attId, att._file)
+      }
+      newAttachments.push({ id: attId, name: att.name, size: att.size })
     }
-    task.attachments.push({ id: attId, name: att.name, size: att.size })
   }
+  // Delete removed attachments from IndexedDB
+  const keptIds = new Set(newAttachments.map(a => a.id).filter(Boolean))
+  const removedIds = task.attachments.filter(a => !keptIds.has(a.id)).map(a => a.id)
+  if (removedIds.length) {
+    await deleteFiles(removedIds)
+  }
+  task.attachments = newAttachments
   persistTasks()
 }
 

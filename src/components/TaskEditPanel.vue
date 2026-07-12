@@ -57,7 +57,7 @@
         <div class="ntp-attach-item" v-for="(f, i) in pendingAttachments" :key="i">
           <span class="ntp-attach-name">{{ f.name }}</span>
           <span class="ntp-attach-size">{{ formatSize(f.size) }}</span>
-          <button class="ntp-attach-remove" @click="removeAttachment(i)" title="移除">
+          <button class="ntp-attach-remove" @click.stop="removeAttachment(i)" title="移除">
             <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
           </button>
         </div>
