@@ -109,11 +109,20 @@ const themes = [
   { key: 'night', icon: moonIcon, label: '夜晚' },
 ]
 
-const thumbPositions = { day: 3, evening: 37, night: 71 }
+function updateThumb(theme) {
+  if (!sliderThumb.value) return
+  const idx = themes.findIndex(t => t.key === theme)
+  if (idx === -1) return
+  const slider = sliderThumb.value.parentElement
+  const btn = slider.querySelectorAll('.slider-option')[idx]
+  if (btn) {
+    sliderThumb.value.style.left = btn.offsetLeft + 'px'
+  }
+}
 
 function setTheme(theme) {
   document.body.setAttribute('data-theme', theme)
-  sliderThumb.value.style.left = thumbPositions[theme] + 'px'
+  updateThumb(theme)
 }
 
 function onHeartClick() {
@@ -153,9 +162,7 @@ function onSettingsOpened() {
 
 function syncThumb() {
   const theme = document.body.getAttribute('data-theme')
-  if (theme && sliderThumb.value) {
-    sliderThumb.value.style.left = thumbPositions[theme] + 'px'
-  }
+  if (theme) updateThumb(theme)
 }
 
 onMounted(() => {
