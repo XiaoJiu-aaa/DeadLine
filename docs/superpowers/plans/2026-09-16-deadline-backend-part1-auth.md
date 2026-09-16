@@ -26,6 +26,33 @@ spring-security-crypto（仅取 BCrypt）、JUnit 5 + MockMvc + H2（测试用�
 
 **项目根目录：** `C:\Users\Lenovo\Desktop\deadline-server`
 
+**已确认的环境事实（2026-09-16 核对）：**
+VM 是 CentOS 7.6，yum 源可用（无需切 vault），MySQL 8.0.46 已装并运行，
+原 JDK 8 保留不动、另装 JDK 17 到 `/opt/jdk17`，VM 内网地址 `192.168.88.130`。
+
+---
+
+## Spring Boot 4 与计划原稿的差异
+
+Spring Initializr 当前只提供 **Spring Boot 4.x**。Boot 4 相对 Boot 3 有一批破坏性改动，
+本计划已按 Boot 4 调整，执行时**不要套用网上 Spring Boot 3 的教程**。
+
+| 变化 | 对本次实现的影响 |
+|---|---|
+| Jackson 2 → 3，包名 `com.fasterxml.jackson` → `tools.jackson`，`ObjectMapper` 被 `JsonMapper` 取代 | **已规避**：拦截器与测试中不再使用任何 Jackson 类型，改为写 JSON 字符串字面量 |
+| `spring-boot-starter-web` 拆分为更细粒度的 starter | 由 IDEA 向导自动填写正确的依赖，不要手改 |
+| `@SpringBootTest` 不再自动装配 MockMvc | **已规避**：`ApiTestSupport` 中显式声明 `@AutoConfigureMockMvc` |
+| `@MockBean` / `@SpyBean` → `@MockitoBean` / `@MockitoSpyBean` | 本部分未使用 mock Bean |
+| Hibernate 6 → 7 | `ddl-auto: validate` 语义不变；`LocalDateTime` 仍映射为 `datetime(6)` |
+| JUnit 5 → 6 | `org.junit.jupiter.*` 包名与断言 API 不变 |
+| Java 基线仍为 **17** | VM 上的 JDK 17 可用，无需升到 21 |
+
+**开发机 JDK 必须选 17。** 用户 Windows 上环境变量指向 JDK 25，但 VM 运行时是 JDK 17。
+如果在 IDEA 里用 JDK 25 构建，产出的 class 文件版本是 69，传到 VM 上会报
+`UnsupportedClassVersionError`。IDEA 项目 SDK 选 17，且 pom 中
+`<java.version>17</java.version>`（向导会按 SDK 自动写入，需核对）。
+以 `java -version` 看到的 VM 版本为准。
+
 ---
 
 ## Task 0: 准备 CentOS 7 环境
@@ -261,40 +288,52 @@ Expected: 显示 `Successful`。
 - Create: `deadline-server/src/main/java/com/xiaojiu/deadline/DeadlineApplication.java`
 - Create: `deadline-server/src/main/resources/application.yml`
 
-- [ ] **Step 1: 用 Spring Initializr 生成骨架**
+- [ ] **Step 1: 用 IDEA 向导创建工程**
 
-Windows 的 Git Bash 执行：
+在 IDEA 中 `File` → `New` → `Project`，左侧选 `Spring Initializr`，按下表填写：
 
-```bash
-cd "C:/Users/Lenovo/Desktop"
-curl -G https://start.spring.io/starter.zip \
-  -d type=maven-project \
-  -d language=java \
-  -d javaVersion=17 \
-  -d groupId=com.xiaojiu \
-  -d artifactId=deadline-server \
-  -d name=deadline-server \
-  -d packageName=com.xiaojiu.deadline \
-  -d dependencies=web,data-jpa,mysql,validation \
-  -o deadline-server.zip
-ls -lh deadline-server.zip
+| 字段 | 值 |
+|---|---|
+| Name | `deadline-server` |
+| Location | `C:\Users\Lenovo\Desktop` |
+| Language | Java |
+| Type | Maven |
+| Group | `com.xiaojiu` |
+| Artifact | `deadline-server` |
+| Package name | `com.xiaojiu.deadline` |
+| JDK | **17**（下拉里选 Emulator 17；若没有，用 `Download JDK...` 装 Eclipse Temurin 17） |
+| Java | 17 |
+| Packaging | Jar |
+| Spring Boot | 最新的 4.x |
+
+`Dependencies` 中勾选：`Spring Web`、`Spring Data JPA`、`MySQL Driver`、`Validation`。
+
+**JDK 必须选 17，不能选 25。** 用户 Windows 上环境变量指向 JDK 25，
+但 VM 上运行的是 JDK 17。用 25 构建出的 class 文件版本过高，传过去会报
+`UnsupportedClassVersionError: class file version 69`。
+
+**Spring Boot 版本选 4.x。** 不要试图降级到 3.x——3.5 已超出 OSS 支持期，
+且 Spring Initializr 已不再提供。
+
+- [ ] **Step 2: 核对 pom.xml 的 Java 版本**
+
+打开 `deadline-server/pom.xml`，确认 `<properties>` 块中有：
+
+```xml
+	<properties>
+		<java.version>17</java.version>
+	</properties>
 ```
 
-Expected: 生成一个约 100 KB 的 zip 文件。
+不是 17 就改成 17。这一项决定编译产物的字节码版本，是能否在 VM 上运行的关键。
 
-如果 `curl` 访问 start.spring.io 失败，改用 IDEA：
-`File` → `New` → `Project` → `Spring Initializr`，按上面的 Group / Artifact 填写，
-Dependencies 勾选 `Spring Web`、`Spring Data JPA`、`MySQL Driver`、`Validation`。
-
-- [ ] **Step 2: 解压并确认目录结构**
+在 IDEA 终端或 Git Bash 中确认目录结构：
 
 ```bash
-cd "C:/Users/Lenovo/Desktop"
-unzip -q deadline-server.zip -d deadline-server
-ls -R deadline-server | head -20
+ls "C:/Users/Lenovo/Desktop/deadline-server"
 ```
 
-Expected: 能看到 `deadline-server/pom.xml`、`deadline-server/src/main/java/com/xiaojiu/deadline/DeadlineApplication.java`。
+Expected: 看到 `pom.xml`、`src`、`mvnw`、`mvnw.cmd`。
 
 - [ ] **Step 3: 把 jjwt 和 BCrypt 依赖加入 pom.xml**
 
@@ -337,6 +376,21 @@ Expected: 能看到 `deadline-server/pom.xml`、`deadline-server/src/main/java/c
 
 `spring-security-crypto` 的版本由 Spring Boot 的 BOM 管理，所以不写 `<version>`。
 `h2` 同理。
+
+注意 `spring-security-crypto` **不是** `spring-boot-starter-security`。前者只是一个
+提供 `BCryptPasswordEncoder` 的独立小工具包，引入它不会触发 Spring Security 的
+自动配置（否则所有接口都会默认被拦，还会在 Boot 4 里因 CSRF 默认开启而出现 403）。
+
+加了依赖后执行一次，确认版本能解析出来：
+
+```bash
+cd "C:/Users/Lenovo/Desktop/deadline-server"
+./mvnw -q dependency:tree -Dincludes=org.springframework.security:spring-security-crypto
+```
+
+Expected: 输出中该依赖带有一个具体版本号（如 `7.0.x`）。
+若报 `'dependencies.dependency.version' for ... is missing`，说明 BOM 没管这个包，
+需要手动补 `<version>7.0.0</version>` 之类的版本号。
 
 - [ ] **Step 4: 生成 JWT 密钥**
 
@@ -1389,7 +1443,6 @@ public @interface ApiTestSupport {
 ```java
 package com.xiaojiu.deadline.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xiaojiu.deadline.ApiTestSupport;
 import com.xiaojiu.deadline.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -1398,8 +1451,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.Map;
-
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -1407,11 +1458,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ApiTestSupport
 class AuthControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private static final String VALID_BODY =
+            "{\"username\":\"alice\",\"password\":\"secret123\"}";
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private MockMvc mockMvc;
 
     @Autowired
     private UserRepository userRepository;
@@ -1421,15 +1472,11 @@ class AuthControllerTest {
         userRepository.deleteAll();
     }
 
-    private String json(Map<String, String> body) throws Exception {
-        return objectMapper.writeValueAsString(body);
-    }
-
     @Test
     void 注册成功返回201和令牌() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", "alice", "password", "secret123"))))
+                        .content(VALID_BODY))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.token").isNotEmpty())
                 .andExpect(jsonPath("$.username").value("alice"));
@@ -1437,21 +1484,20 @@ class AuthControllerTest {
 
     @Test
     void 用户名重复返回409() throws Exception {
-        String body = json(Map.of("username", "alice", "password", "secret123"));
         mockMvc.perform(post("/api/auth/register")
-                .contentType(MediaType.APPLICATION_JSON).content(body));
+                .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY));
 
         mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                        .contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("用户名已存在"));
+                .andExpect(jsonPath("$.message").isNotEmpty());
     }
 
     @Test
     void 密码过短返回400() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", "alice", "password", "123"))))
+                        .content("{\"username\":\"alice\",\"password\":\"123\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").isNotEmpty());
     }
@@ -1460,7 +1506,7 @@ class AuthControllerTest {
     void 用户名含非法字符返回400() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", "al ice!", "password", "secret123"))))
+                        .content("{\"username\":\"al ice!\",\"password\":\"secret123\"}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -1468,11 +1514,22 @@ class AuthControllerTest {
     void 缺少字段返回400而不是500() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("username", "alice"))))
+                        .content("{\"username\":\"alice\"}"))
                 .andExpect(status().isBadRequest());
     }
 }
 ```
+
+**两处刻意的设计，解释一下：**
+
+1. **请求体直接写 JSON 字符串，不用 ObjectMapper 序列化。** Boot 4 的 Jackson 3
+   改了包名，手动序列化会引入版本问题；而且直接写字符串能让你一眼看到
+   「究竟发出去了什么字节」，调试接口时这点很有用。
+
+2. **不在这里断言中文错误文案，只断言状态码和「message 非空」。**
+   MockMvc 读响应体时用的字符集不一定是 UTF-8，断言中文有概率假失败。
+   错误文案的精确断言放在 `AuthServiceTest`（那里直接断言异常消息，不受编码影响），
+   两层测试各管各的：Service 层管「说了什么」，Controller 层管「HTTP 层面对不对」。
 
 - [ ] **Step 3: 运行测试确认失败**
 
@@ -1558,7 +1615,6 @@ git commit -m "添加注册接口 — 参数校验与用户名重复处理"
 ```java
 package com.xiaojiu.deadline.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xiaojiu.deadline.ApiTestSupport;
 import com.xiaojiu.deadline.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -1567,8 +1623,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -1576,30 +1633,27 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ApiTestSupport
 class LoginControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private static final String REGISTER_BODY =
+            "{\"username\":\"alice\",\"password\":\"secret123\"}";
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private MockMvc mockMvc;
 
     @Autowired
     private UserRepository userRepository;
 
     @BeforeEach
-    void clean() throws Exception {
+    void setUp() throws Exception {
         userRepository.deleteAll();
         mockMvc.perform(post("/api/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(
-                        Map.of("username", "alice", "password", "secret123"))));
+                .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY));
     }
 
     @Test
     void 登录成功返回200和令牌() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                Map.of("username", "alice", "password", "secret123"))))
+                        .content(REGISTER_BODY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
                 .andExpect(jsonPath("$.username").value("alice"));
@@ -1609,32 +1663,36 @@ class LoginControllerTest {
     void 密码错误返回401() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                Map.of("username", "alice", "password", "wrongpass"))))
+                        .content("{\"username\":\"alice\",\"password\":\"wrongpass\"}"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("用户名或密码错误"));
+                .andExpect(jsonPath("$.message").isNotEmpty());
     }
 
     @Test
-    void 用户不存在返回的响应与密码错误完全一致() throws Exception {
-        String notExist = mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                Map.of("username", "nobody", "password", "secret123"))))
-                .andExpect(status().isUnauthorized())
-                .andReturn().getResponse().getContentAsString();
+    void 用户不存在与密码错误返回完全相同的响应() throws Exception {
+        String notExist = loginResponseBody("nobody", "secret123");
+        String wrongPwd = loginResponseBody("alice", "wrongpass");
 
-        String wrongPwd = mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                Map.of("username", "alice", "password", "wrongpass"))))
-                .andExpect(status().isUnauthorized())
-                .andReturn().getResponse().getContentAsString();
+        assertThat(notExist).isEqualTo(wrongPwd);
+        assertThat(notExist).contains("message");
+    }
 
-        org.assertj.core.api.Assertions.assertThat(notExist).isEqualTo(wrongPwd);
+    private String loginResponseBody(String username, String password) throws Exception {
+        return mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + username
+                                + "\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isUnauthorized())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(StandardCharsets.UTF_8);
     }
 }
 ```
+
+最后一个测试是防用户名枚举漏洞的：用户不存在和密码错误必须返回**逐字节相同**的
+响应。这里用 `getContentAsString(StandardCharsets.UTF_8)` 显式指定字符集，
+既避开编码问题，又保证两次读取方式一致、比较才有意义。
 
 - [ ] **Step 2: 运行测试**
 
@@ -1834,8 +1892,6 @@ Expected: 失败。`无令牌访问受保护接口返回401` 会因为没人拦�
 ```java
 package com.xiaojiu.deadline.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.xiaojiu.deadline.dto.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpMethod;
@@ -1844,17 +1900,18 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
+import java.io.IOException;
+
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String UNAUTHORIZED_BODY = "{\"message\":\"未登录或登录已过期\"}";
 
     private final JwtUtil jwtUtil;
-    private final ObjectMapper objectMapper;
 
-    public AuthInterceptor(JwtUtil jwtUtil, ObjectMapper objectMapper) {
+    public AuthInterceptor(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -1882,15 +1939,22 @@ public class AuthInterceptor implements HandlerInterceptor {
         return true;
     }
 
-    private boolean reject(HttpServletResponse response) throws Exception {
+    private boolean reject(HttpServletResponse response) throws IOException {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        objectMapper.writeValue(response.getWriter(), new ApiError("未登录或登录已过期"));
+        response.getWriter().write(UNAUTHORIZED_BODY);
         return false;
     }
 }
 ```
+
+**注意这里没有用 Jackson。** Spring Boot 4 把 Jackson 2 换成了 Jackson 3，
+包名从 `com.fasterxml.jackson` 改成 `tools.jackson`，`ObjectMapper` 被不可变的
+`JsonMapper` 取代。拦截器只需要输出一句固定的错误信息，直接写字符串字面量
+比引入一套 JSON 序列化更简单，也就绕开了整个版本迁移问题。
+（`dto.ApiError` 仍然保留，它由 `GlobalExceptionHandler` 使用，
+Spring 会自动用当前配置的 JSON 库把它序列化，我们不需要手动处理。）
 
 - [ ] **Step 5: 写 WebMvcConfig 注册拦截器**
 
@@ -2048,7 +2112,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
 ```java
 package com.xiaojiu.deadline.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xiaojiu.deadline.ApiTestSupport;
 import com.xiaojiu.deadline.repository.UserRepository;
 import com.xiaojiu.deadline.security.JwtUtil;
@@ -2057,8 +2120,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -2069,11 +2130,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ApiTestSupport
 class MeControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private static final String REGISTER_BODY =
+            "{\"username\":\"alice\",\"password\":\"secret123\"}";
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private MockMvc mockMvc;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -2088,9 +2149,7 @@ class MeControllerTest {
         userRepository.deleteAll();
 
         mockMvc.perform(post("/api/auth/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(
-                        Map.of("username", "alice", "password", "secret123"))));
+                .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY));
 
         // 必须先真正建出用户，再拿数据库里的真实 id 签令牌。
         // 用伪造的 id 签令牌会得到 401，因为 /api/me 会去查库确认用户存在。
