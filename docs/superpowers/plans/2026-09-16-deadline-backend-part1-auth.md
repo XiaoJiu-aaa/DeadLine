@@ -42,10 +42,17 @@ Spring Initializr 当前只提供 **Spring Boot 4.x**。Boot 4 相对 Boot 3 有
 | Jackson 2 → 3，包名 `com.fasterxml.jackson` → `tools.jackson`，`ObjectMapper` 被 `JsonMapper` 取代 | **已规避**：拦截器与测试中不再使用任何 Jackson 类型，改为写 JSON 字符串字面量 |
 | `spring-boot-starter-web` 拆分为更细粒度的 starter | 由 IDEA 向导自动填写正确的依赖，不要手改 |
 | `@SpringBootTest` 不再自动装配 MockMvc | **已规避**：`ApiTestSupport` 中显式声明 `@AutoConfigureMockMvc` |
+| **`@AutoConfigureMockMvc` 换了包**：`org.springframework.boot.test.autoconfigure.web.servlet` → **`org.springframework.boot.webmvc.test.autoconfigure`** | 已核对 4.1.1 的实际 jar 包路径并写进 `ApiTestSupport` |
+| `spring-boot-starter-test` 被拆成 `-webmvc-test` / `-data-jpa-test` / `-validation-test`（`spring-boot-starter-test` 仍会随之传递引入） | 向导已自动配好，**不要手改 pom 的这一段** |
 | `@MockBean` / `@SpyBean` → `@MockitoBean` / `@MockitoSpyBean` | 本部分未使用 mock Bean |
 | Hibernate 6 → 7 | `ddl-auto: validate` 语义不变；`LocalDateTime` 仍映射为 `datetime(6)` |
 | JUnit 5 → 6 | `org.junit.jupiter.*` 包名与断言 API 不变 |
+| Jackson 2 → 3 | jjwt 会带进 Jackson 2（runtime 作用域）与 Boot 的 Jackson 3 并存，互不干扰；我们代码两者都不用 |
 | Java 基线仍为 **17** | VM 上的 JDK 17 可用，无需升到 21 |
+
+**已核对的 4.1.1 实际依赖版本**（来自 `mvn dependency:tree`）：
+`spring-security-crypto:7.1.1`、`assertj-core:3.27.7`、`junit-jupiter:6.0.3`、
+`json-path:2.10.0`、`hamcrest:3.0`、`h2:2.4.240`、`mysql-connector-j:9.7.0`。
 
 **开发机 JDK 必须选 17。** 用户 Windows 上环境变量指向 JDK 25，但 VM 运行时是 JDK 17。
 如果在 IDEA 里用 JDK 25 构建，产出的 class 文件版本是 69，传到 VM 上会报
@@ -285,7 +292,7 @@ Expected: 显示 `Successful`。
 
 **Files:**
 - Create: `C:\Users\Lenovo\Desktop\deadline-server\pom.xml`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/DeadlineApplication.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/DeadlineApplication.java`
 - Create: `deadline-server/src/main/resources/application.yml`
 
 - [ ] **Step 1: 用 IDEA 向导创建工程**
@@ -300,7 +307,7 @@ Expected: 显示 `Successful`。
 | Type | Maven |
 | Group | `com.xiaojiu` |
 | Artifact | `deadline-server` |
-| Package name | `com.xiaojiu.deadline` |
+| Package name | `com.xiaojiu.deadlineserver` |
 | JDK | **17**（下拉里选 Emulator 17；若没有，用 `Download JDK...` 装 Eclipse Temurin 17） |
 | Java | 17 |
 | Packaging | Jar |
@@ -497,7 +504,7 @@ git commit -m "初始化 Spring Boot 骨架 — 加入 jjwt、BCrypt、H2 依赖
 
 **Files:**
 - Create: `deadline-server/src/main/resources/schema.sql`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/entity/User.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/entity/User.java`
 
 - [ ] **Step 1: 写 schema.sql**
 
@@ -540,10 +547,10 @@ Expected: 列出 `users` 表，字段与 schema.sql 一致。
 
 - [ ] **Step 3: 写 User 实体**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/entity/User.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/entity/User.java`：
 
 ```java
-package com.xiaojiu.deadline.entity;
+package com.xiaojiu.deadlineserver.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -602,7 +609,7 @@ Expected: `Started DeadlineApplication in x.xxx seconds`，
 
 ```bash
 cd "C:/Users/Lenovo/Desktop/deadline-server"
-git add src/main/resources/schema.sql src/main/java/com/xiaojiu/deadline/entity/User.java
+git add src/main/resources/schema.sql src/main/java/com/xiaojiu/deadlineserver/entity/User.java
 git commit -m "添加 users 表结构与对应实体 — JPA validate 通过"
 ```
 
@@ -613,16 +620,16 @@ git commit -m "添加 users 表结构与对应实体 — JPA validate 通过"
 先建立异常基础设施，后面的接口才能用统一格式返回错误。
 
 **Files:**
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/exception/BizException.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/exception/GlobalExceptionHandler.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/dto/ApiError.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/exception/BizException.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/exception/GlobalExceptionHandler.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/dto/ApiError.java`
 
 - [ ] **Step 1: 写 ApiError**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/dto/ApiError.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/dto/ApiError.java`：
 
 ```java
-package com.xiaojiu.deadline.dto;
+package com.xiaojiu.deadlineserver.dto;
 
 public record ApiError(String message) {
 }
@@ -632,10 +639,10 @@ public record ApiError(String message) {
 
 - [ ] **Step 2: 写 BizException**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/exception/BizException.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/exception/BizException.java`：
 
 ```java
-package com.xiaojiu.deadline.exception;
+package com.xiaojiu.deadlineserver.exception;
 
 import org.springframework.http.HttpStatus;
 
@@ -672,12 +679,12 @@ public class BizException extends RuntimeException {
 
 - [ ] **Step 3: 写 GlobalExceptionHandler**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/exception/GlobalExceptionHandler.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/exception/GlobalExceptionHandler.java`：
 
 ```java
-package com.xiaojiu.deadline.exception;
+package com.xiaojiu.deadlineserver.exception;
 
-import com.xiaojiu.deadline.dto.ApiError;
+import com.xiaojiu.deadlineserver.dto.ApiError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -729,7 +736,7 @@ Expected: 没有输出，退出码 0。
 - [ ] **Step 5: 提交**
 
 ```bash
-git add src/main/java/com/xiaojiu/deadline/exception src/main/java/com/xiaojiu/deadline/dto
+git add src/main/java/com/xiaojiu/deadlineserver/exception src/main/java/com/xiaojiu/deadlineserver/dto
 git commit -m "添加统一异常处理 — 错误响应统一为 {message}"
 ```
 
@@ -738,20 +745,20 @@ git commit -m "添加统一异常处理 — 错误响应统一为 {message}"
 ## Task 4: 密码哈希与用户仓储
 
 **Files:**
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/repository/UserRepository.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/config/PasswordConfig.java`
-- Modify: `deadline-server/src/main/java/com/xiaojiu/deadline/DeadlineApplication.java`（加 `@ConfigurationPropertiesScan` 不需要，但需要确认已有 `@SpringBootApplication`）
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/repository/UserRepository.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/PasswordConfig.java`
+- Modify: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/DeadlineApplication.java`（加 `@ConfigurationPropertiesScan` 不需要，但需要确认已有 `@SpringBootApplication`）
 - Test: `deadline-server/src/test/resources/application-test.yml`
-- Test: `deadline-server/src/test/java/com/xiaojiu/deadline/TestSupport.java`
+- Test: `deadline-server/src/test/java/com/xiaojiu/deadlineserver/TestSupport.java`
 
 - [ ] **Step 1: 写 Repository**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/repository/UserRepository.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/repository/UserRepository.java`：
 
 ```java
-package com.xiaojiu.deadline.repository;
+package com.xiaojiu.deadlineserver.repository;
 
-import com.xiaojiu.deadline.entity.User;
+import com.xiaojiu.deadlineserver.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -768,10 +775,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 - [ ] **Step 2: 写 BCrypt 配置**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/config/PasswordConfig.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/PasswordConfig.java`：
 
 ```java
-package com.xiaojiu.deadline.config;
+package com.xiaojiu.deadlineserver.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -824,10 +831,10 @@ app:
 
 - [ ] **Step 4: 写测试基类**
 
-创建 `deadline-server/src/test/java/com/xiaojiu/deadline/TestSupport.java`：
+创建 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/TestSupport.java`：
 
 ```java
-package com.xiaojiu.deadline;
+package com.xiaojiu.deadlineserver;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -849,13 +856,13 @@ public @interface TestSupport {
 
 - [ ] **Step 5: 写失败测试**
 
-创建 `deadline-server/src/test/java/com/xiaojiu/deadline/RepositorySmokeTest.java`：
+创建 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/RepositorySmokeTest.java`：
 
 ```java
-package com.xiaojiu.deadline;
+package com.xiaojiu.deadlineserver;
 
-import com.xiaojiu.deadline.entity.User;
-import com.xiaojiu.deadline.repository.UserRepository;
+import com.xiaojiu.deadlineserver.entity.User;
+import com.xiaojiu.deadlineserver.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -908,7 +915,7 @@ Expected: `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0` 和 `BUILD SUCCESS`
 - [ ] **Step 7: 提交**
 
 ```bash
-git add src/main/java/com/xiaojiu/deadline/repository src/main/java/com/xiaojiu/deadline/config/PasswordConfig.java src/test/
+git add src/main/java/com/xiaojiu/deadlineserver/repository src/main/java/com/xiaojiu/deadlineserver/config/PasswordConfig.java src/test/
 git commit -m "添加 UserRepository 与 BCrypt 密码编码器 — 含测试基类与 H2 测试环境"
 ```
 
@@ -917,18 +924,18 @@ git commit -m "添加 UserRepository 与 BCrypt 密码编码器 — 含测试基
 ## Task 5: JWT 工具类
 
 **Files:**
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/config/JwtProperties.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/security/JwtUtil.java`
-- Modify: `deadline-server/src/main/java/com/xiaojiu/deadline/DeadlineApplication.java`
-- Test: `deadline-server/src/test/java/com/xiaojiu/deadline/security/JwtUtilTest.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/JwtProperties.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/security/JwtUtil.java`
+- Modify: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/DeadlineApplication.java`
+- Test: `deadline-server/src/test/java/com/xiaojiu/deadlineserver/security/JwtUtilTest.java`
 
 - [ ] **Step 1: 开启配置属性扫描**
 
-修改 `deadline-server/src/main/java/com/xiaojiu/deadline/DeadlineApplication.java`，
+修改 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/DeadlineApplication.java`，
 在 `@SpringBootApplication` 下面加一行：
 
 ```java
-package com.xiaojiu.deadline;
+package com.xiaojiu.deadlineserver;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -946,10 +953,10 @@ public class DeadlineApplication {
 
 - [ ] **Step 2: 写配置属性类**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/config/JwtProperties.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/JwtProperties.java`：
 
 ```java
-package com.xiaojiu.deadline.config;
+package com.xiaojiu.deadlineserver.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -969,12 +976,12 @@ public class JwtProperties {
 
 - [ ] **Step 3: 写失败测试**
 
-创建 `deadline-server/src/test/java/com/xiaojiu/deadline/security/JwtUtilTest.java`：
+创建 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/security/JwtUtilTest.java`：
 
 ```java
-package com.xiaojiu.deadline.security;
+package com.xiaojiu.deadlineserver.security;
 
-import com.xiaojiu.deadline.config.JwtProperties;
+import com.xiaojiu.deadlineserver.config.JwtProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -1046,12 +1053,12 @@ Expected: 编译失败，提示找不到 `JwtUtil` 类。这是预期的。
 
 - [ ] **Step 5: 实现 JwtUtil**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/security/JwtUtil.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/security/JwtUtil.java`：
 
 ```java
-package com.xiaojiu.deadline.security;
+package com.xiaojiu.deadlineserver.security;
 
-import com.xiaojiu.deadline.config.JwtProperties;
+import com.xiaojiu.deadlineserver.config.JwtProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -1148,7 +1155,7 @@ Expected: `Tests run: 4, Failures: 0, Errors: 0` 和 `BUILD SUCCESS`。
 - [ ] **Step 7: 提交**
 
 ```bash
-git add src/main/java/com/xiaojiu/deadline/config/JwtProperties.java src/main/java/com/xiaojiu/deadline/security/JwtUtil.java src/main/java/com/xiaojiu/deadline/DeadlineApplication.java src/test/java/com/xiaojiu/deadline/security/
+git add src/main/java/com/xiaojiu/deadlineserver/config/JwtProperties.java src/main/java/com/xiaojiu/deadlineserver/security/JwtUtil.java src/main/java/com/xiaojiu/deadlineserver/DeadlineApplication.java src/test/java/com/xiaojiu/deadlineserver/security/
 git commit -m "添加 JWT 工具类 — HS256 签发校验，含密钥长度前置校验"
 ```
 
@@ -1157,18 +1164,18 @@ git commit -m "添加 JWT 工具类 — HS256 签发校验，含密钥长度前�
 ## Task 6: 注册与登录业务逻辑
 
 **Files:**
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/dto/RegisterRequest.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/dto/LoginRequest.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/dto/AuthResponse.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/service/AuthService.java`
-- Create: `deadline-server/src/test/java/com/xiaojiu/deadline/service/AuthServiceTest.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/dto/RegisterRequest.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/dto/LoginRequest.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/dto/AuthResponse.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/service/AuthService.java`
+- Create: `deadline-server/src/test/java/com/xiaojiu/deadlineserver/service/AuthServiceTest.java`
 
 - [ ] **Step 1: 写请求与响应 DTO**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/dto/RegisterRequest.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/dto/RegisterRequest.java`：
 
 ```java
-package com.xiaojiu.deadline.dto;
+package com.xiaojiu.deadlineserver.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -1187,10 +1194,10 @@ public record RegisterRequest(
 }
 ```
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/dto/LoginRequest.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/dto/LoginRequest.java`：
 
 ```java
-package com.xiaojiu.deadline.dto;
+package com.xiaojiu.deadlineserver.dto;
 
 import jakarta.validation.constraints.NotBlank;
 
@@ -1201,10 +1208,10 @@ public record LoginRequest(
 }
 ```
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/dto/AuthResponse.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/dto/AuthResponse.java`：
 
 ```java
-package com.xiaojiu.deadline.dto;
+package com.xiaojiu.deadlineserver.dto;
 
 public record AuthResponse(String token, String username) {
 }
@@ -1212,16 +1219,16 @@ public record AuthResponse(String token, String username) {
 
 - [ ] **Step 2: 写失败测试**
 
-创建 `deadline-server/src/test/java/com/xiaojiu/deadline/service/AuthServiceTest.java`：
+创建 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/service/AuthServiceTest.java`：
 
 ```java
-package com.xiaojiu.deadline.service;
+package com.xiaojiu.deadlineserver.service;
 
-import com.xiaojiu.deadline.TestSupport;
-import com.xiaojiu.deadline.dto.AuthResponse;
-import com.xiaojiu.deadline.exception.BizException;
-import com.xiaojiu.deadline.repository.UserRepository;
-import com.xiaojiu.deadline.security.JwtUtil;
+import com.xiaojiu.deadlineserver.TestSupport;
+import com.xiaojiu.deadlineserver.dto.AuthResponse;
+import com.xiaojiu.deadlineserver.exception.BizException;
+import com.xiaojiu.deadlineserver.repository.UserRepository;
+import com.xiaojiu.deadlineserver.security.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1316,16 +1323,16 @@ Expected: 编译失败，提示找不到 `AuthService`。
 
 - [ ] **Step 4: 实现 AuthService**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/service/AuthService.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/service/AuthService.java`：
 
 ```java
-package com.xiaojiu.deadline.service;
+package com.xiaojiu.deadlineserver.service;
 
-import com.xiaojiu.deadline.dto.AuthResponse;
-import com.xiaojiu.deadline.entity.User;
-import com.xiaojiu.deadline.exception.BizException;
-import com.xiaojiu.deadline.repository.UserRepository;
-import com.xiaojiu.deadline.security.JwtUtil;
+import com.xiaojiu.deadlineserver.dto.AuthResponse;
+import com.xiaojiu.deadlineserver.entity.User;
+import com.xiaojiu.deadlineserver.exception.BizException;
+import com.xiaojiu.deadlineserver.repository.UserRepository;
+import com.xiaojiu.deadlineserver.security.JwtUtil;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -1397,7 +1404,7 @@ Expected: `Tests run: 5, Failures: 0, Errors: 0` 和 `BUILD SUCCESS`。
 - [ ] **Step 6: 提交**
 
 ```bash
-git add src/main/java/com/xiaojiu/deadline/dto src/main/java/com/xiaojiu/deadline/service/AuthService.java src/test/java/com/xiaojiu/deadline/service/
+git add src/main/java/com/xiaojiu/deadlineserver/dto src/main/java/com/xiaojiu/deadlineserver/service/AuthService.java src/test/java/com/xiaojiu/deadlineserver/service/
 git commit -m "添加注册与登录业务逻辑 — 用户名重复返回409，登录失败不区分用户是否存在"
 ```
 
@@ -1406,19 +1413,19 @@ git commit -m "添加注册与登录业务逻辑 — 用户名重复返回409，
 ## Task 7: 注册接口
 
 **Files:**
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/controller/AuthController.java`
-- Create: `deadline-server/src/test/java/com/xiaojiu/deadline/controller/AuthControllerTest.java`
-- Create: `deadline-server/src/test/java/com/xiaojiu/deadline/ApiTestSupport.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/controller/AuthController.java`
+- Create: `deadline-server/src/test/java/com/xiaojiu/deadlineserver/controller/AuthControllerTest.java`
+- Create: `deadline-server/src/test/java/com/xiaojiu/deadlineserver/ApiTestSupport.java`
 
 - [ ] **Step 1: 写 MockMvc 测试基类**
 
-创建 `deadline-server/src/test/java/com/xiaojiu/deadline/ApiTestSupport.java`：
+创建 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/ApiTestSupport.java`：
 
 ```java
-package com.xiaojiu.deadline;
+package com.xiaojiu.deadlineserver;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -1438,13 +1445,13 @@ public @interface ApiTestSupport {
 
 - [ ] **Step 2: 写失败测试**
 
-创建 `deadline-server/src/test/java/com/xiaojiu/deadline/controller/AuthControllerTest.java`：
+创建 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/controller/AuthControllerTest.java`：
 
 ```java
-package com.xiaojiu.deadline.controller;
+package com.xiaojiu.deadlineserver.controller;
 
-import com.xiaojiu.deadline.ApiTestSupport;
-import com.xiaojiu.deadline.repository.UserRepository;
+import com.xiaojiu.deadlineserver.ApiTestSupport;
+import com.xiaojiu.deadlineserver.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1542,15 +1549,15 @@ Expected: 编译失败，提示找不到 `AuthController`。
 
 - [ ] **Step 4: 实现 AuthController**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/controller/AuthController.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/controller/AuthController.java`：
 
 ```java
-package com.xiaojiu.deadline.controller;
+package com.xiaojiu.deadlineserver.controller;
 
-import com.xiaojiu.deadline.dto.AuthResponse;
-import com.xiaojiu.deadline.dto.LoginRequest;
-import com.xiaojiu.deadline.dto.RegisterRequest;
-import com.xiaojiu.deadline.service.AuthService;
+import com.xiaojiu.deadlineserver.dto.AuthResponse;
+import com.xiaojiu.deadlineserver.dto.LoginRequest;
+import com.xiaojiu.deadlineserver.dto.RegisterRequest;
+import com.xiaojiu.deadlineserver.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -1596,7 +1603,7 @@ Expected: 注册相关的 5 个测试全部 PASS。登录接口还不存在，�
 - [ ] **Step 6: 提交**
 
 ```bash
-git add src/main/java/com/xiaojiu/deadline/controller/AuthController.java src/test/java/com/xiaojiu/deadline/ApiTestSupport.java src/test/java/com/xiaojiu/deadline/controller/
+git add src/main/java/com/xiaojiu/deadlineserver/controller/AuthController.java src/test/java/com/xiaojiu/deadlineserver/ApiTestSupport.java src/test/java/com/xiaojiu/deadlineserver/controller/
 git commit -m "添加注册接口 — 参数校验与用户名重复处理"
 ```
 
@@ -1605,18 +1612,18 @@ git commit -m "添加注册接口 — 参数校验与用户名重复处理"
 ## Task 8: 登录接口
 
 **Files:**
-- Modify: `deadline-server/src/main/java/com/xiaojiu/deadline/controller/AuthController.java`（已含 login 方法，本任务只需补测试）
-- Test: `deadline-server/src/test/java/com/xiaojiu/deadline/controller/LoginControllerTest.java`
+- Modify: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/controller/AuthController.java`（已含 login 方法，本任务只需补测试）
+- Test: `deadline-server/src/test/java/com/xiaojiu/deadlineserver/controller/LoginControllerTest.java`
 
 - [ ] **Step 1: 写失败测试**
 
-创建 `deadline-server/src/test/java/com/xiaojiu/deadline/controller/LoginControllerTest.java`：
+创建 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/controller/LoginControllerTest.java`：
 
 ```java
-package com.xiaojiu.deadline.controller;
+package com.xiaojiu.deadlineserver.controller;
 
-import com.xiaojiu.deadline.ApiTestSupport;
-import com.xiaojiu.deadline.repository.UserRepository;
+import com.xiaojiu.deadlineserver.ApiTestSupport;
+import com.xiaojiu.deadlineserver.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1707,7 +1714,7 @@ Expected: `Tests run: 3, Failures: 0, Errors: 0` 和 `BUILD SUCCESS`。
 - [ ] **Step 3: 提交**
 
 ```bash
-git add src/test/java/com/xiaojiu/deadline/controller/LoginControllerTest.java
+git add src/test/java/com/xiaojiu/deadlineserver/controller/LoginControllerTest.java
 git commit -m "添加登录接口测试 — 断言用户不存在与密码错误响应一致"
 ```
 
@@ -1716,18 +1723,18 @@ git commit -m "添加登录接口测试 — 断言用户不存在与密码错误
 ## Task 9: JWT 拦截器与当前用户注入
 
 **Files:**
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/security/CurrentUserId.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/security/CurrentUserIdResolver.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/security/AuthInterceptor.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/config/WebMvcConfig.java`
-- Test: `deadline-server/src/test/java/com/xiaojiu/deadline/security/AuthInterceptorTest.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/security/CurrentUserId.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/security/CurrentUserIdResolver.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/security/AuthInterceptor.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/WebMvcConfig.java`
+- Test: `deadline-server/src/test/java/com/xiaojiu/deadlineserver/security/AuthInterceptorTest.java`
 
 - [ ] **Step 1: 写注解与解析器**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/security/CurrentUserId.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/security/CurrentUserId.java`：
 
 ```java
-package com.xiaojiu.deadline.security;
+package com.xiaojiu.deadlineserver.security;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -1740,10 +1747,10 @@ public @interface CurrentUserId {
 }
 ```
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/security/CurrentUserIdResolver.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/security/CurrentUserIdResolver.java`：
 
 ```java
-package com.xiaojiu.deadline.security;
+package com.xiaojiu.deadlineserver.security;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.stereotype.Component;
@@ -1775,13 +1782,13 @@ public class CurrentUserIdResolver implements HandlerMethodArgumentResolver {
 
 - [ ] **Step 2: 写失败测试**
 
-创建 `deadline-server/src/test/java/com/xiaojiu/deadline/security/AuthInterceptorTest.java`：
+创建 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/security/AuthInterceptorTest.java`：
 
 先建一个仅用于测试的控制器。创建
-`deadline-server/src/test/java/com/xiaojiu/deadline/security/ProbeController.java`：
+`deadline-server/src/test/java/com/xiaojiu/deadlineserver/security/ProbeController.java`：
 
 ```java
-package com.xiaojiu.deadline.security;
+package com.xiaojiu.deadlineserver.security;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -1800,13 +1807,13 @@ public class ProbeController {
 }
 ```
 
-再建测试 `deadline-server/src/test/java/com/xiaojiu/deadline/security/AuthInterceptorTest.java`：
+再建测试 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/security/AuthInterceptorTest.java`：
 
 ```java
-package com.xiaojiu.deadline.security;
+package com.xiaojiu.deadlineserver.security;
 
-import com.xiaojiu.deadline.ApiTestSupport;
-import com.xiaojiu.deadline.repository.UserRepository;
+import com.xiaojiu.deadlineserver.ApiTestSupport;
+import com.xiaojiu.deadlineserver.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1887,10 +1894,10 @@ Expected: 失败。`无令牌访问受保护接口返回401` 会因为没人拦�
 
 - [ ] **Step 4: 实现 AuthInterceptor**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/security/AuthInterceptor.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/security/AuthInterceptor.java`：
 
 ```java
-package com.xiaojiu.deadline.security;
+package com.xiaojiu.deadlineserver.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -1958,13 +1965,13 @@ Spring 会自动用当前配置的 JSON 库把它序列化，我们不需要手�
 
 - [ ] **Step 5: 写 WebMvcConfig 注册拦截器**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/config/WebMvcConfig.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/WebMvcConfig.java`：
 
 ```java
-package com.xiaojiu.deadline.config;
+package com.xiaojiu.deadlineserver.config;
 
-import com.xiaojiu.deadline.security.AuthInterceptor;
-import com.xiaojiu.deadline.security.CurrentUserIdResolver;
+import com.xiaojiu.deadlineserver.security.AuthInterceptor;
+import com.xiaojiu.deadlineserver.security.CurrentUserIdResolver;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -2009,7 +2016,7 @@ Expected: `Tests run: 5, Failures: 0, Errors: 0` 和 `BUILD SUCCESS`。
 - [ ] **Step 7: 提交**
 
 ```bash
-git add src/main/java/com/xiaojiu/deadline/security src/main/java/com/xiaojiu/deadline/config/WebMvcConfig.java src/test/java/com/xiaojiu/deadline/security/
+git add src/main/java/com/xiaojiu/deadlineserver/security src/main/java/com/xiaojiu/deadlineserver/config/WebMvcConfig.java src/test/java/com/xiaojiu/deadlineserver/security/
 git commit -m "添加 JWT 拦截器与 @CurrentUserId 参数解析器 — OPTIONS 预检直接放行"
 ```
 
@@ -2018,17 +2025,17 @@ git commit -m "添加 JWT 拦截器与 @CurrentUserId 参数解析器 — OPTION
 ## Task 10: 当前用户接口与 CORS
 
 **Files:**
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/controller/MeController.java`
-- Create: `deadline-server/src/main/java/com/xiaojiu/deadline/config/CorsProperties.java`
-- Modify: `deadline-server/src/main/java/com/xiaojiu/deadline/config/WebMvcConfig.java`
-- Test: `deadline-server/src/test/java/com/xiaojiu/deadline/controller/MeControllerTest.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/controller/MeController.java`
+- Create: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/CorsProperties.java`
+- Modify: `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/WebMvcConfig.java`
+- Test: `deadline-server/src/test/java/com/xiaojiu/deadlineserver/controller/MeControllerTest.java`
 
 - [ ] **Step 1: 写 CORS 配置属性**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/config/CorsProperties.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/CorsProperties.java`：
 
 ```java
-package com.xiaojiu.deadline.config;
+package com.xiaojiu.deadlineserver.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -2044,14 +2051,14 @@ public class CorsProperties {
 
 - [ ] **Step 2: 在 WebMvcConfig 中加入 CORS**
 
-修改 `deadline-server/src/main/java/com/xiaojiu/deadline/config/WebMvcConfig.java`，
+修改 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/config/WebMvcConfig.java`，
 把整个文件替换为：
 
 ```java
-package com.xiaojiu.deadline.config;
+package com.xiaojiu.deadlineserver.config;
 
-import com.xiaojiu.deadline.security.AuthInterceptor;
-import com.xiaojiu.deadline.security.CurrentUserIdResolver;
+import com.xiaojiu.deadlineserver.security.AuthInterceptor;
+import com.xiaojiu.deadlineserver.security.CurrentUserIdResolver;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -2107,14 +2114,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
 - [ ] **Step 3: 写失败测试**
 
-创建 `deadline-server/src/test/java/com/xiaojiu/deadline/controller/MeControllerTest.java`：
+创建 `deadline-server/src/test/java/com/xiaojiu/deadlineserver/controller/MeControllerTest.java`：
 
 ```java
-package com.xiaojiu.deadline.controller;
+package com.xiaojiu.deadlineserver.controller;
 
-import com.xiaojiu.deadline.ApiTestSupport;
-import com.xiaojiu.deadline.repository.UserRepository;
-import com.xiaojiu.deadline.security.JwtUtil;
+import com.xiaojiu.deadlineserver.ApiTestSupport;
+import com.xiaojiu.deadlineserver.repository.UserRepository;
+import com.xiaojiu.deadlineserver.security.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -2201,15 +2208,15 @@ Expected: 编译失败，提示找不到 `MeController`。
 
 - [ ] **Step 5: 实现 MeController**
 
-创建 `deadline-server/src/main/java/com/xiaojiu/deadline/controller/MeController.java`：
+创建 `deadline-server/src/main/java/com/xiaojiu/deadlineserver/controller/MeController.java`：
 
 ```java
-package com.xiaojiu.deadline.controller;
+package com.xiaojiu.deadlineserver.controller;
 
-import com.xiaojiu.deadline.entity.User;
-import com.xiaojiu.deadline.exception.BizException;
-import com.xiaojiu.deadline.repository.UserRepository;
-import com.xiaojiu.deadline.security.CurrentUserId;
+import com.xiaojiu.deadlineserver.entity.User;
+import com.xiaojiu.deadlineserver.exception.BizException;
+import com.xiaojiu.deadlineserver.repository.UserRepository;
+import com.xiaojiu.deadlineserver.security.CurrentUserId;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -2248,7 +2255,7 @@ Expected: 所有测试通过，`BUILD SUCCESS`。
 - [ ] **Step 7: 提交**
 
 ```bash
-git add src/main/java/com/xiaojiu/deadline/config src/main/java/com/xiaojiu/deadline/controller/MeController.java src/test/java/com/xiaojiu/deadline/controller/MeControllerTest.java
+git add src/main/java/com/xiaojiu/deadlineserver/config src/main/java/com/xiaojiu/deadlineserver/controller/MeController.java src/test/java/com/xiaojiu/deadlineserver/controller/MeControllerTest.java
 git commit -m "添加 /api/me 接口与 CORS 配置 — 放行 Authorization 头"
 ```
 

@@ -96,7 +96,7 @@ cloudflared 是出站连接，不依赖公网 IP；JWT 走请求头，不碰 Coo
 ```
 deadline-server/
   pom.xml
-  src/main/java/com/xiaojiu/deadline/
+  src/main/java/com/xiaojiu/deadlineserver/
     DeadlineApplication.java
     config/WebConfig.java              # CORS 配置
     config/WebMvcConfig.java           # 注册拦截器与参数解析器
