@@ -2409,7 +2409,32 @@ git commit -m "完成第一部分 — 环境与认证链路端到端验证通过
 越权返回 404 的 Repository 写法、`marked_days` 与 `diaries`、
 附件上传下载与磁盘清理、`CF-Connecting-IP` 真实 IP 提取、滑动窗口限流、用户配额。
 
-届时需要新增 `ClientIp`、`RateLimiter`、`FileService` 等组件，
-并注意 `tasks.is_all_day` 这类布尔列在 Hibernate 6 + MySQL 下的类型映射
-（`boolean` 会被映射为 `bit`，与 `tinyint(1)` 不匹配导致 `validate` 失败，
-届时用 `@Column(columnDefinition = "tinyint(1)")` 显式声明）。
+届时需要新增 `ClientIp`、`RateLimiter`、`FileService` 等组件。
+
+### 第一部分执行中实际踩到、第二部分会再踩的坑
+
+1. **测试 DDL 与手写 DDL 会分叉。** 测试用 `ddl-auto: create-drop`，表由 Hibernate
+   按实体生成；生产用手写的 `schema.sql`。凡是「数据库负责生成」的列
+   （`DEFAULT CURRENT_TIMESTAMP`、`ON UPDATE`、`AUTO_INCREMENT` 的细节），
+   实体上都必须用 `@ColumnDefault` 显式声明，否则测试建出的表缺默认值，
+   插入会失败。`tasks`、`attachments`、`diaries` 都有时间戳列，全部要注意。
+
+2. **这种失败会伪装成别的错误。** 约束冲突抛出的 `DataIntegrityViolationException`
+   如果被业务代码 catch 后包装成别的异常，真实原因就丢了。
+   凡是 catch 数据库异常再转换的地方，必须打日志保留原始异常。
+
+3. **布尔列的类型映射。** `tasks.is_all_day` / `tasks.completed` 在实体上用
+   `Boolean` 时，Hibernate 7 对 MySQL 会映射成 `bit`，与此处的 `tinyint(1)`
+   不匹配导致 `validate` 失败。届时用
+   `@Column(columnDefinition = "tinyint(1)")` 显式声明。
+   注意这与第 1 条叠加：`tinyint(1)` 在 H2 的 MySQL 模式下未必被接受，
+   需要实测，必要时给测试单独放宽。
+
+4. **MockMvc 断言中文文案会假失败。** 响应字符集不保证是 UTF-8。
+   文案的精确断言放 Service 层，Controller 层只断言状态码和字段非空；
+   确实需要比较完整响应体时，用 `getContentAsString(StandardCharsets.UTF_8)`。
+
+5. **Spring Boot 4 的坑已确认：** `@AutoConfigureMockMvc` 在
+   `org.springframework.boot.webmvc.test.autoconfigure`（不是 Boot 3 的
+   `...boot.test.autoconfigure.web.servlet`）；jackson 走
+   `tools.jackson.*`，代码里干脆不用它。
