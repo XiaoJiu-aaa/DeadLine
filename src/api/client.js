@@ -132,7 +132,7 @@ async function request(path, { method = 'GET', body, formData, raw = false } = {
     // 这个区分对用户很重要：「连不上」和「后端说不行」是完全不同的两回事。
     throw new ApiError(
       0,
-      '连不上后端。请检查：① 设置的服务器地址对不对；② 虚拟机上的后端和隧道是否在运行。',
+      '连不上后端。',
       e,
     )
   }
