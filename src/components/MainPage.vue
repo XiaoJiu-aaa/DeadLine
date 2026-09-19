@@ -453,27 +453,7 @@ function handleSettingsAction(action) {
     case 'clearArchive':
       clearArchive()
       break
-    case 'export':
-    case 'import':
-      exportImportNotReady()
-      break
-    case 'downloadAll':
-      break
   }
-}
-
-/**
- * 导出/导入暂时下线。
- *
- * 改造前它们读的是 localStorage 和 IndexedDB，现在数据在后端，
- * 需要按新的数据源重写。而且「导出全部日记」还需要后端补一个
- * 「列出我的所有日记」的接口（目前只有按日期查单条的）。
- *
- * 与其留一个点了会静默失败的按钮，不如明确告诉用户「还没接上」——
- * 静默失效是这次改造里反复遇到的一类问题，不该自己再造一个。
- */
-function exportImportNotReady() {
-  alert('导出/导入正在改造中，暂时不可用。\n\n数据仍然保存在服务器上，不会丢失。')
 }
 
 function onKeyDown(e) {

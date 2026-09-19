@@ -3,14 +3,18 @@
     <button class="settings-btn" @click.stop="toggle">
       ⚙
     </button>
+    <!--
+      这里曾经有「导出数据 / 导入数据」。
+      数据搬到服务器之后删掉了 —— 备份应该发生在数据库层面
+      （mysqldump），而不是做成一个用户界面功能：
+
+        · mysqldump 备份的是全部用户、全部数据，比逐个用户导出 zip 完整
+        · 用户界面上的导入要把 zip 解析出来、逐条调接口、重新上传附件，
+          代码量不小，而且容易在中途失败后留下半个状态
+        · 数据在服务器上之后，「用户自己的浏览器数据丢了」这个问题
+          本来就消失了 —— 导出的原始动机没了
+    -->
     <div class="settings-panel" :class="{ visible: open }">
-      <button class="menu-item" @click.stop="emitAction('export')">
-        导出数据
-      </button>
-      <button class="menu-item" @click.stop="emitAction('import')">
-        导入数据
-      </button>
-      <div class="dropdown-divider"></div>
       <button class="menu-item" @click.stop="emitAction('clearArchive')">
         清除归档
       </button>
