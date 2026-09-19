@@ -3,6 +3,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [master]
+  # 允许在网页上手动触发。
+  # 加上它之后，仓库的 Actions 页面会出现一个 Run workflow 按钮，
+  # 不用推代码也能重新构建部署 —— 改完 Pages 设置、或者怀疑构建缓存有问题时很有用。
+  workflow_dispatch:
 
 jobs:
   deploy:
