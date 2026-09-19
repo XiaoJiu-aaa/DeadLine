@@ -34,6 +34,19 @@
       @toggleSpecial="onToggleSpecial"
     />
 
+    <!--
+      加载失败提示。
+      ★ 为什么这个条不能省：数据在后端之后，「后端挂了」和「今天没任务」
+        在界面上都是「一片空白」。用户会以为自己的数据丢了，
+        反复刷新，而真正的原因（虚拟机没开机、隧道断了）完全看不出来。
+        所以必须明确区分「加载失败」和「没有数据」。
+    -->
+    <div v-if="loadError" class="load-error">
+      <span class="load-error-icon">⚠</span>
+      <span class="load-error-text">{{ loadError }}</span>
+      <button class="load-error-btn" @click="retryLoad">重试</button>
+    </div>
+
     <!-- Day Diary Panel -->
     <DayDiary :dateStr="diaryDate" :visible="diaryOpen" @close="closeDiary" />
 
@@ -68,10 +81,9 @@ import DynamicBackground from './DynamicBackground.vue'
 import DayDiary from './DayDiary.vue'
 import TaskDrawer from './TaskDrawer.vue'
 import CelebrationEffect from './CelebrationEffect.vue'
-import { saveFile, deleteFiles, getFile } from '../utils/db.js'
-import { getCurrentUser, getImportantDays, toggleImportantDay, getSpecialDays, toggleSpecialDay, getAllTasks, saveAllTasks } from '../utils/storage.js'
-import { generateId, formatDate } from '../utils/helpers.js'
-import JSZip from 'jszip'
+import { attachments, markedDays, tasks as tasksApi } from '../api/index.js'
+import { endSession, verify } from '../session.js'
+import { formatDate } from '../utils/helpers.js'
 
 const router = useRouter()
 const appHeader = ref(null)
@@ -89,6 +101,8 @@ const tasks = ref([])
 const drawerOpen = ref(false)
 const celebrateTrigger = ref(0)
 const isCelebrating = ref(false)
+/** 加载失败的原因。非空时界面上会显示提示条 */
+const loadError = ref('')
 
 const tasksForDate = computed(() =>
   tasks.value.filter(t => t.date === selectedDate.value)
@@ -114,11 +128,29 @@ const canMark = computed(() => {
   return selectedDate.value >= formatDate(new Date())
 })
 
-function loadImportantDays() {
-  const user = getCurrentUser()
-  if (user) {
-    importantDays.value = getImportantDays(user)
-    specialDays.value = getSpecialDays(user)
+/**
+ * 把异常显示到顶部的提示条上。
+ *
+ * 数据在后端之后，请求失败是常态之一（VM 没开机、隧道断了、令牌失效），
+ * 静默失败会让用户以为「数据没了」。所以每个数据操作都要有失败路径。
+ */
+function showError(e) {
+  loadError.value = e?.message || '操作失败，请稍后重试'
+}
+
+async function loadImportantDays() {
+  const data = await markedDays.list()
+  importantDays.value = data.importantDays
+  specialDays.value = data.specialDays
+}
+
+/** 用户点了提示条上的「重试」 */
+async function retryLoad() {
+  loadError.value = ''
+  try {
+    await Promise.all([loadTasks(), loadImportantDays()])
+  } catch (e) {
+    showError(e)
   }
 }
 
@@ -144,25 +176,35 @@ function onSelectDate(dateStr) {
   }
 }
 
-function onToggleImportant() {
+async function onToggleImportant() {
   if (!canMark.value) return
-  const user = getCurrentUser()
-  if (!user) return
-  const result = toggleImportantDay(user, selectedDate.value)
-  if (result) {
-    importantDays.value = result.importantDays
-    specialDays.value = result.specialDays
-  }
+  await applyMarkedDay(isImportant.value ? null : 'important')
 }
 
-function onToggleSpecial() {
+async function onToggleSpecial() {
   if (!canMark.value) return
-  const user = getCurrentUser()
-  if (!user) return
-  const result = toggleSpecialDay(user, selectedDate.value)
-  if (result) {
-    importantDays.value = result.importantDays
-    specialDays.value = result.specialDays
+  await applyMarkedDay(isSpecial.value ? null : 'special')
+}
+
+/**
+ * 设置或取消当前选中日期的标记。
+ *
+ * ★ 前端只传「我想让它变成什么」——'important' / 'special' / null，
+ *   互斥关系完全交给后端。前端不需要检查「另一个类型里有没有同一天」。
+ *
+ * 改造前有两个对称的函数（toggleImportantDay / toggleSpecialDay），
+ * 各自维护「往一个数组加之前先从另一个数组删掉」的逻辑。
+ * 现在它们合并成了这一个函数，而且互斥那段代码整个消失了——
+ * 因为数据库的 UNIQUE(user_id, date) 保证了同一天不可能有两条记录。
+ */
+async function applyMarkedDay(type) {
+  try {
+    const data = await markedDays.set(selectedDate.value, type)
+    importantDays.value = data.importantDays
+    specialDays.value = data.specialDays
+    loadError.value = ''
+  } catch (e) {
+    showError(e)
   }
 }
 
@@ -179,16 +221,17 @@ function closeDrawer() {
   calendarRef.value?.clearSelection()
 }
 
-function loadTasks() {
-  const user = getCurrentUser()
-  if (user) {
-    tasks.value = getAllTasks(user) || []
-  }
-}
-
-function persistTasks() {
-  const user = getCurrentUser()
-  if (user) saveAllTasks(user, tasks.value)
+/**
+ * 从后端拉全部任务。
+ *
+ * 改造前是「读 localStorage」，现在是「发一个 HTTP 请求」——
+ * 所以它变成了异步的，所有调用点都要 await。
+ *
+ * 注意后端返回的每条任务里已经带上了 attachments 数组，
+ * 不需要（也不能）再单独去 IndexedDB 里查附件列表。
+ */
+async function loadTasks() {
+  tasks.value = await tasksApi.list()
 }
 
 function onHighlightDate(dateStr) {
@@ -196,96 +239,133 @@ function onHighlightDate(dateStr) {
 }
 
 async function onTaskCreate(formData) {
-  const task = {
-    id: generateId('t'),
-    title: formData.title,
-    date: formData.date,
-    isAllDay: formData.isAllDay,
-    timeLabel: formData.timeLabel,
-    latestStart: formData.latestStart || null,
-    category: formData.category,
-    note: formData.note,
-    completed: false,
-    attachments: [],
-  }
-  // Save file attachments to IndexedDB
-  const pendingAtts = formData.pendingAttachments || []
-  for (const att of pendingAtts) {
-    const attId = generateId('att')
-    if (att._file) {
-      await saveFile(attId, att._file)
+  try {
+    // ① 先建任务，拿到数据库生成的自增 id
+    const created = await tasksApi.create({
+      title: formData.title,
+      date: formData.date,
+      isAllDay: formData.isAllDay,
+      timeLabel: formData.timeLabel,
+      latestStart: formData.latestStart || null,
+      category: formData.category,
+      note: formData.note,
+    })
+
+    // ② 再逐个上传附件
+    //
+    // ★ 顺序不能反。改造前任务的 id 是前端本地生成的（generateId('t')），
+    //   所以可以「先造 id、再把附件挂上去」。
+    //   现在 id 由数据库生成，必须先建任务拿到 id，
+    //   才能往 /api/tasks/{id}/attachments 上传。
+    //
+    // 注意这里是「尽力而为」：如果第 2 个附件传失败，任务和第 1 个附件
+    // 已经存在了（后端无法回滚）。用一个事务跨多个 HTTP 请求是做不到的。
+    for (const att of formData.pendingAttachments || []) {
+      if (!att._file) continue
+      const uploaded = await attachments.upload(created.id, att._file)
+      created.attachments.push(uploaded)
     }
-    task.attachments.push({ id: attId, name: att.name, size: att.size })
+
+    tasks.value.unshift(created)
+    loadError.value = ''
+  } catch (e) {
+    showError(e)
   }
-  tasks.value.unshift(task)
-  persistTasks()
 }
 
 async function onTaskUpdate({ id, data }) {
   const task = tasks.value.find(t => t.id === id)
   if (!task) return
-  task.title = data.title
-  task.category = data.category
-  task.date = data.date
-  task.isAllDay = data.isAllDay
-  task.timeLabel = data.timeLabel
-  task.note = data.note
-  task.latestStart = data.latestStart || null
-  // Replace attachments with pending list (handles both add and remove)
-  const newAtts = data.pendingAttachments || []
-  const newAttachments = []
-  for (const att of newAtts) {
-    if (att.id && !att._file) {
-      // Existing attachment, keep it
-      newAttachments.push({ id: att.id, name: att.name, size: att.size })
-    } else {
-      // New file attachment
-      const attId = generateId('att')
-      if (att._file) {
-        await saveFile(attId, att._file)
+
+  try {
+    // ① 先改任务的字段
+    await tasksApi.update(id, {
+      title: data.title,
+      category: data.category,
+      date: data.date,
+      isAllDay: data.isAllDay,
+      timeLabel: data.timeLabel,
+      note: data.note,
+      latestStart: data.latestStart || null,
+    })
+
+    // ② 附件要单独算差集，因为后端把附件设计成了独立的资源
+    //    （PUT /api/tasks/{id} 明确不改动附件，避免两套逻辑冲突）
+    const before = task.attachments || []
+    const pending = data.pendingAttachments || []
+    const keepIds = new Set(pending.filter(a => a.id).map(a => a.id))
+
+    // 删掉用户移除的
+    for (const att of before) {
+      if (!keepIds.has(att.id)) {
+        await attachments.remove(att.id)
       }
-      newAttachments.push({ id: attId, name: att.name, size: att.size })
     }
+
+    // 上传用户新加的
+    for (const att of pending) {
+      if (att._file) {
+        await attachments.upload(id, att._file)
+      }
+    }
+
+    // ③ 附件变动之后重新拉一次列表
+    //
+    // 也可以用更新的返回值 + 手工拼装附件数组，但那样要维护
+    // 「哪些删了、哪些加了、服务端返回的 id 是什么」一堆状态，
+    // 容易出错。任务数量本来就不大，多一个请求换确定性是划算的。
+    await loadTasks()
+    loadError.value = ''
+  } catch (e) {
+    showError(e)
   }
-  // Delete removed attachments from IndexedDB
-  const keptIds = new Set(newAttachments.map(a => a.id).filter(Boolean))
-  const removedIds = task.attachments.filter(a => !keptIds.has(a.id)).map(a => a.id)
-  if (removedIds.length) {
-    await deleteFiles(removedIds)
-  }
-  task.attachments = newAttachments
-  persistTasks()
 }
 
 async function onTaskDelete(taskId) {
-  const task = tasks.value.find(t => t.id === taskId)
-  if (task && task.attachments.length) {
-    const ids = task.attachments.map(a => a.id)
-    await deleteFiles(ids).catch(() => {})
+  try {
+    // ★ 前端不需要逐个删附件。
+    //
+    // 后端在删任务时会一起处理：删附件记录、删磁盘文件、扣减用户配额。
+    // 改造前这里要手工 deleteFiles() 清理 IndexedDB，现在留给后端做——
+    // 它做得更完整（磁盘和配额也管了），而且不会漏。
+    await tasksApi.remove(taskId)
+    tasks.value = tasks.value.filter(t => t.id !== taskId)
+    loadError.value = ''
+  } catch (e) {
+    showError(e)
   }
-  tasks.value = tasks.value.filter(t => t.id !== taskId)
-  persistTasks()
 }
 
 async function clearArchive() {
+  // 保留最近 30 天
   const cutoff = formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
-  const old = tasks.value.filter(t => t.date < cutoff)
-  if (old.length === 0) return
-  const attIds = old.flatMap(t => (t.attachments || []).map(a => a.id))
-  if (attIds.length) {
-    await deleteFiles(attIds).catch(() => {})
+  try {
+    const result = await tasksApi.clearArchive(cutoff)
+    if (!result.deleted) return
+    // 用同一个 cutoff 过滤本地列表，和后端的条件保持一致
+    tasks.value = tasks.value.filter(t => t.date >= cutoff)
+    loadError.value = ''
+  } catch (e) {
+    showError(e)
   }
-  tasks.value = tasks.value.filter(t => t.date >= cutoff)
-  persistTasks()
 }
 
-function onTaskToggleComplete(taskId) {
+async function onTaskToggleComplete(taskId) {
   const task = tasks.value.find(t => t.id === taskId)
-  if (task) {
-    task.completed = !task.completed
-    persistTasks()
+  if (!task) return
 
-    // Celebration: today selected + just completed last task + not already playing
+  try {
+    // 用后端返回的对象覆盖本地那一条。
+    //
+    // ★ 这里刻意**不做乐观更新**（先改本地再发请求）。
+    //   乐观更新失败时要回滚，回滚又要处理「回滚到哪个状态」，
+    //   状态一多就容易出现「界面显示已完成、服务器其实没改」。
+    //   等响应回来再改，慢一点点，但界面永远和服务器一致。
+    const updated = await tasksApi.setCompleted(taskId, !task.completed)
+    Object.assign(task, updated)
+    loadError.value = ''
+
+    // 庆祝动画的判断读的是本地状态，上面同步完就对了
     if (task.completed && !isCelebrating.value) {
       const todayStr = formatDate(new Date())
       if (selectedDate.value === todayStr) {
@@ -296,6 +376,8 @@ function onTaskToggleComplete(taskId) {
         }
       }
     }
+  } catch (e) {
+    showError(e)
   }
 }
 
@@ -353,158 +435,45 @@ function onPageClick(e) {
 function handleSettingsAction(action) {
   switch (action) {
     case 'logout':
-      const data = JSON.parse(localStorage.getItem('todo_calendar_data') || '{}')
-      data.currentUser = null
-      localStorage.setItem('todo_calendar_data', JSON.stringify(data))
+      // 退出登录 = 清掉本地的令牌。
+      //
+      // ★ 注意后端**没有**「注销令牌」这个操作——JWT 是无状态的，
+      //   服务端不记录「谁登录了」，所以也没法让一个已签发的令牌失效。
+      //   令牌在到期（7 天）之前一直有效。
+      //
+      //   这是 JWT 相对 Session 的固有代价：换来的是服务端不必存会话、
+      //   天然支持多实例，付出的是「无法主动登出」。
+      //   （真要支持就要维护一张「已失效令牌」黑名单，那又变成有状态了。）
+      //
+      //   对用户的影响：在公共电脑上退出登录后，那个令牌如果被人抄走，
+      //   仍然能用。所以敏感场景下令牌有效期要设得短一些。
+      endSession()
       router.push('/login')
       break
     case 'clearArchive':
       clearArchive()
       break
     case 'export':
-      exportData()
-      break
     case 'import':
-      importData()
+      exportImportNotReady()
       break
     case 'downloadAll':
       break
   }
 }
 
-async function exportData() {
-  const user = getCurrentUser()
-  if (!user) return
-  const userData = JSON.parse(localStorage.getItem('todo_calendar_data') || '{}')
-  const profile = userData.users[user] || {}
-  const tasks = profile.tasks || []
-
-  const zip = new JSZip()
-  const attachmentsFolder = zip.folder('attachments')
-
-  // Collect all attachment IDs and fetch blobs from IndexedDB
-  const allAttIds = []
-  for (const task of tasks) {
-    if (task.attachments) {
-      for (const att of task.attachments) {
-        if (att.id) allAttIds.push(att.id)
-      }
-    }
-  }
-
-  // Fetch and add each attachment file to the ZIP
-  for (const attId of allAttIds) {
-    try {
-      const record = await getFile(attId)
-      if (record && record.blob) {
-        attachmentsFolder.file(attId, record.blob)
-      }
-    } catch (_) { /* skip missing files */ }
-  }
-
-  // Add data.json (metadata only, same structure as before)
-  const payload = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    username: user,
-    tasks: tasks,
-    importantDays: profile.importantDays || [],
-    specialDays: profile.specialDays || [],
-    diaries: profile.diaries || {},
-  }
-  zip.file('data.json', JSON.stringify(payload, null, 2))
-
-  const blob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `todo-calendar-backup-${formatDate(new Date())}.zip`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-function importData() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.zip,.json'
-  input.onchange = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    try {
-      let payload
-
-      if (file.name.endsWith('.zip')) {
-        const zip = await JSZip.loadAsync(file)
-        const dataFile = zip.file('data.json')
-        if (!dataFile) { alert('ZIP 中未找到 data.json'); return }
-        const text = await dataFile.async('string')
-        payload = JSON.parse(text)
-
-        // Restore attachments to IndexedDB
-        const attachmentsFolder = zip.folder('attachments')
-        if (attachmentsFolder) {
-          const attFiles = []
-          attachmentsFolder.forEach((relativePath, zipEntry) => {
-            if (!zipEntry.dir) attFiles.push({ id: relativePath, entry: zipEntry })
-          })
-          for (const { id, entry } of attFiles) {
-            try {
-              const blob = await entry.async('blob')
-              await saveFile(id, blob)
-            } catch (_) { /* skip */ }
-          }
-        }
-      } else {
-        // Plain JSON fallback (no attachments)
-        const text = await file.text()
-        payload = JSON.parse(text)
-      }
-
-      if (!payload.version || !payload.tasks) {
-        alert('无效的备份文件格式')
-        return
-      }
-      const user = getCurrentUser()
-      if (!user) return
-      const data = JSON.parse(localStorage.getItem('todo_calendar_data') || '{}')
-      if (!data.users[user]) return
-
-      const existingIds = new Set((data.users[user].tasks || []).map(t => t.id))
-      const newTasks = (payload.tasks || []).filter(t => !existingIds.has(t.id))
-      data.users[user].tasks = [...(data.users[user].tasks || []), ...newTasks]
-
-      const existingImp = new Set(data.users[user].importantDays || [])
-      data.users[user].importantDays = [
-        ...(data.users[user].importantDays || []),
-        ...(payload.importantDays || []).filter(d => !existingImp.has(d)),
-      ]
-
-      const existingSp = new Set(data.users[user].specialDays || [])
-      data.users[user].specialDays = [
-        ...(data.users[user].specialDays || []),
-        ...(payload.specialDays || []).filter(d => !existingSp.has(d)),
-      ]
-
-      if (payload.diaries) {
-        if (!data.users[user].diaries) data.users[user].diaries = {}
-        for (const [date, diary] of Object.entries(payload.diaries)) {
-          if (!data.users[user].diaries[date]) {
-            data.users[user].diaries[date] = diary
-          }
-        }
-      }
-
-      localStorage.setItem('todo_calendar_data', JSON.stringify(data))
-      loadTasks()
-      loadImportantDays()
-      alert(`导入成功！新增 ${newTasks.length} 条任务`)
-    } catch (err) {
-      alert('文件解析失败，请检查文件格式')
-    }
-  }
-  input.click()
+/**
+ * 导出/导入暂时下线。
+ *
+ * 改造前它们读的是 localStorage 和 IndexedDB，现在数据在后端，
+ * 需要按新的数据源重写。而且「导出全部日记」还需要后端补一个
+ * 「列出我的所有日记」的接口（目前只有按日期查单条的）。
+ *
+ * 与其留一个点了会静默失败的按钮，不如明确告诉用户「还没接上」——
+ * 静默失效是这次改造里反复遇到的一类问题，不该自己再造一个。
+ */
+function exportImportNotReady() {
+  alert('导出/导入正在改造中，暂时不可用。\n\n数据仍然保存在服务器上，不会丢失。')
 }
 
 function onKeyDown(e) {
@@ -524,10 +493,41 @@ function onKeyDown(e) {
   }
 }
 
+/**
+ * 加载数据。
+ *
+ * ★ 第一步是向后端确认令牌还有效，而不是直接拉数据。
+ *
+ * 因为本地存着的令牌可能已经失效（过期了、签发它的密钥换了、
+ * 或者用户已经被删除）。路由守卫只能做同步的本地判断（「有没有令牌」），
+ * 判断不了「令牌还有没有用」——那需要问后端。
+ *
+ * 三种结果要区别对待：
+ *   ① 令牌有效        → 正常加载
+ *   ② 令牌失效（401） → 回登录页（client 里的 onUnauthorized 已经处理了跳转）
+ *   ③ 连不上后端      → 保留令牌，显示错误提示。不能把用户踢下线，
+ *                       因为他什么都没做错，只是服务器暂时不可达
+ */
+async function initData() {
+  try {
+    const ok = await verify()
+    if (!ok) return
+  } catch (e) {
+    showError(e)
+    return
+  }
+
+  try {
+    await Promise.all([loadTasks(), loadImportantDays()])
+    loadError.value = ''
+  } catch (e) {
+    showError(e)
+  }
+}
+
 onMounted(() => {
   document.addEventListener('keydown', onKeyDown)
-  loadImportantDays()
-  loadTasks()
+  initData()
 
   syncTheme()
   themeObserver = new MutationObserver((mutations) => {
@@ -770,6 +770,60 @@ onBeforeUnmount(() => {
 .main-page.ready :deep(.calendar-wrapper) {
   opacity: 1;
   transform: translateY(0) scale(1);
+}
+
+/* ===== Load error banner ===== */
+
+.load-error {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(680px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 244, 238, 0.96);
+  border: 1px solid rgba(200, 90, 70, 0.32);
+  box-shadow: 0 6px 22px rgba(120, 60, 40, 0.14);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #8a3a2a;
+  animation: loadErrorIn 0.28s ease;
+}
+
+@keyframes loadErrorIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.load-error-icon {
+  flex-shrink: 0;
+  font-size: 15px;
+}
+
+.load-error-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.load-error-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(200, 90, 70, 0.4);
+  background: transparent;
+  color: #8a3a2a;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.load-error-btn:hover {
+  background: rgba(200, 90, 70, 0.1);
 }
 
 </style>

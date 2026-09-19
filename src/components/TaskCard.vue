@@ -69,7 +69,7 @@
 <script setup>
 import { computed } from 'vue'
 import { getTaskStatus, CATEGORIES, formatDate } from '../utils/helpers.js'
-import { getFile } from '../utils/db.js'
+import { attachments } from '../api/index.js'
 
 const props = defineProps({
   task: { type: Object, required: true },
@@ -117,18 +117,36 @@ const deletingStyle = computed(() => {
   return {}
 })
 
+/**
+ * 下载附件。
+ *
+ * ★ 这里必须用 fetch 把内容取回来，不能写成
+ *     <a href="/api/attachments/1" download>
+ *
+ *   因为直接用链接是「浏览器发起的新导航」，它**不带 Authorization 头**，
+ *   后端会稳定返回 401，用户看到的是「下载失败」而不知道原因。
+ *
+ *   正确做法：用 fetch 带着令牌把内容取成 Blob，再在内存里造一个
+ *   临时链接触发下载。（这也是为什么 attachments.downloadBlob 返回 Blob
+ *   而不是 URL。）
+ */
 async function downloadAtt(att) {
   if (!att.id) return
-  const record = await getFile(att.id)
-  if (!record || !record.blob) return
-  const url = URL.createObjectURL(record.blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = att.name
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  try {
+    const blob = await attachments.downloadBlob(att.id)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = att.name
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    // 用完就释放，否则这个 Blob 会一直占着内存直到页面关闭。
+    // 大文件反复下载会累积成几百 MB
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert(`下载失败：${e?.message || '未知错误'}`)
+  }
 }
 </script>
 

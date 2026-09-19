@@ -58,11 +58,11 @@
               <div class="error-msg" :class="{ visible: errors.password }">{{ errors.password }}</div>
             </div>
 
-            <button type="submit" class="animated-button">
+            <button type="submit" class="animated-button" :disabled="submitting">
               <svg xmlns="http://www.w3.org/2000/svg" class="arr-2" viewBox="0 0 24 24">
                 <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path>
               </svg>
-              <span class="text">{{ isRegisterMode ? '注 册' : '登 录' }}</span>
+              <span class="text">{{ submitting ? '请稍候' : (isRegisterMode ? '注 册' : '登 录') }}</span>
               <span class="circle"></span>
               <svg xmlns="http://www.w3.org/2000/svg" class="arr-1" viewBox="0 0 24 24">
                 <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"></path>
@@ -74,6 +74,30 @@
             {{ isRegisterMode ? '已有账号？' : '还没有账号？' }}
             <a @click="toggleMode">{{ isRegisterMode ? '去登录' : '立即注册' }}</a>
           </p>
+
+          <!--
+            服务器地址配置。
+            ★ 必须放在登录页而不是设置面板里 —— 用户第一次打开时还没有令牌，
+              如果只能在登录之后改地址，就永远登不进去了（死锁）。
+          -->
+          <p class="server-hint">
+            <a @click="showServerConfig = !showServerConfig">
+              {{ showServerConfig ? '收起' : '服务器地址' }}
+            </a>
+            <span class="server-state" :class="{ configured: serverConfigured }">
+              {{ serverConfigured ? '已配置' : '未配置' }}
+            </span>
+          </p>
+
+          <div v-if="showServerConfig" class="server-config">
+            <input
+              type="text"
+              v-model="serverInput"
+              placeholder="https://xxxx.trycloudflare.com"
+              spellcheck="false"
+            />
+            <button type="button" class="server-save" @click="saveServer">保存</button>
+          </div>
         </div>
       </div>
     </div>
@@ -84,7 +108,9 @@
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import DynamicBackground from './DynamicBackground.vue'
-import { validateLogin, registerUser } from '../utils/storage.js'
+import { auth } from '../api/index.js'
+import { getApiBase, hasApiBase, setApiBase } from '../api/client.js'
+import { startSession } from '../session.js'
 
 const router = useRouter()
 
@@ -93,6 +119,14 @@ const password = ref('')
 const isRegisterMode = ref(false)
 const toastVisible = ref(false)
 const toastMsg = ref('')
+
+// 提交中：防止用户连点导致重复注册/重复请求
+const submitting = ref(false)
+
+// 服务器地址配置
+const showServerConfig = ref(false)
+const serverInput = ref('')
+const serverConfigured = ref(false)
 const loginCard = ref(null)
 const cardGlow = ref(null)
 let toastTimer = null
@@ -149,7 +183,51 @@ function toggleMode() {
   clearAllErrors()
 }
 
-function handleSubmit() {
+function saveServer() {
+  const url = serverInput.value.trim()
+  if (!url) return
+  if (!/^https?:\/\//i.test(url)) {
+    showToast('地址要以 http:// 或 https:// 开头')
+    return
+  }
+  setApiBase(url)
+  serverConfigured.value = hasApiBase()
+  showServerConfig.value = false
+  showToast('服务器地址已保存')
+  clearAllErrors()
+}
+
+/**
+ * 把后端返回的错误放到对应的输入框下面。
+ *
+ * ★ 注意这里**没有**区分「用户不存在」和「密码错误」。
+ *
+ * 后端对这两种情况返回的是逐字节相同的响应（防用户名枚举），
+ * 前端如果自作聪明地去猜、给出不同的提示，就等于把这个漏洞
+ * 又从客户端补回来了——攻击者只要看界面上显示的是哪句话，
+ * 就能判断出用户名是否存在。
+ *
+ * 所以规则是：**后端说什么就显示什么，不要翻译、不要补充。**
+ */
+function showApiError(e) {
+  switch (e.status) {
+    case 409:  // 用户名已存在
+    case 400:  // 参数校验失败
+      errors.username = e.message
+      break
+    case 401:  // 用户名或密码错误
+    case 429:  // 请求过于频繁
+      errors.password = e.message
+      break
+    default:
+      // 网络错误等
+      errors.username = e.message
+  }
+}
+
+async function handleSubmit() {
+  if (submitting.value) return
+
   clearAllErrors()
   const u = username.value.trim()
   const p = password.value.trim()
@@ -167,35 +245,35 @@ function handleSubmit() {
 
   if (!valid) return
 
+  // 没配服务器地址就先引导去配，而不是发一个注定失败的请求
+  if (!hasApiBase()) {
+    showServerConfig.value = true
+    errors.username = '请先配置服务器地址'
+    return
+  }
+
   if (isRegisterMode.value) {
-    // Register
-    if (p.length < 3) {
-      errors.password = '密码至少需要 3 个字符'
+    // 前端的长度检查和后端的规则对齐（后端要求 6-64）。
+    // 不一致的话用户会先被后端打回来，体验更差。
+    if (p.length < 6) {
+      errors.password = '密码至少需要 6 个字符'
       return
     }
+  }
 
-    const result = registerUser(u, p)
-    if (!result) {
-      errors.username = '该用户名已被注册'
-      return
-    }
+  submitting.value = true
+  try {
+    const res = isRegisterMode.value
+      ? await auth.register(u, p)
+      : await auth.login(u, p)
 
-    showToast('注册成功！已自动登录 🎉')
+    startSession(res.token, res.username)
+    showToast(isRegisterMode.value ? '注册成功！已自动登录 🎉' : '登录成功！欢迎回来 ✨')
     setTimeout(() => router.push('/'), 600)
-  } else {
-    // Login
-    const user = validateLogin(u, p)
-    if (user === 'not_found') {
-      errors.username = '用户不存在，请先注册'
-      return
-    }
-    if (user === 'wrong_pwd') {
-      errors.password = '密码错误，请重试'
-      return
-    }
-
-    showToast('登录成功！欢迎回来 ✨')
-    setTimeout(() => router.push('/'), 600)
+  } catch (e) {
+    showApiError(e)
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -216,6 +294,14 @@ function onMouseLeave() {
 }
 
 onMounted(() => {
+  // 读一下当前的服务器地址配置。没有的话直接把配置区展开——
+  // 首次访问的用户本来就填不了表单，不如直接引导他
+  serverConfigured.value = hasApiBase()
+  serverInput.value = getApiBase()
+  if (!serverConfigured.value) {
+    showServerConfig.value = true
+  }
+
   const card = loginCard.value
   card.addEventListener('mousemove', onMouseMove)
   card.addEventListener('mouseenter', onMouseEnter)
@@ -697,5 +783,88 @@ onBeforeUnmount(() => {
 
 .ceiling-lamp.off .lamp-light {
   opacity: 0;
+}
+
+/* ===== Server address config ===== */
+
+.server-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-secondary, #8a7560);
+  text-align: center;
+}
+
+.server-hint a {
+  cursor: pointer;
+  color: var(--accent, #e8a850);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.server-state {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  background: rgba(200, 80, 80, 0.12);
+  color: #c05050;
+}
+
+.server-state.configured {
+  background: rgba(80, 160, 100, 0.14);
+  color: #4a8a5c;
+}
+
+.server-config {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.server-config input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-color, #3d2e1c);
+  outline: none;
+}
+
+.server-config input:focus {
+  border-color: var(--accent, #e8a850);
+}
+
+.server-save {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent, #e8a850);
+  color: #fff;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.server-save:hover { opacity: 0.88; }
+
+.server-tip {
+  width: 100%;
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-secondary, #8a7560);
+}
+
+.server-tip strong { color: #c05050; }
+
+.animated-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

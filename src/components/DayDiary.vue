@@ -62,14 +62,20 @@
         maxlength="500"
       ></textarea>
     </div>
+
+    <!--
+      保存失败提示。
+      日记是自动保存的（输入后 400ms），用户不会主动点「保存」，
+      所以失败时如果什么都不说，他会以为已经存上了。
+    -->
+    <div v-if="errorMsg" class="diary-error">{{ errorMsg }}</div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { getCurrentUser } from '../utils/storage.js'
-import { getDiary, saveDiary } from '../utils/storage.js'
+import { diaries } from '../api/index.js'
 import { formatDate } from '../utils/helpers.js'
 
 const props = defineProps({
@@ -91,6 +97,34 @@ const displayDate = computed(() => {
 
 const empty = () => ({ weather: [], mood: [], message: '' })
 const diary = ref(empty())
+
+/** 读取或保存失败时的提示 */
+const errorMsg = ref('')
+
+/**
+ * 上一次和后端同步过的内容快照（JSON 字符串）。
+ *
+ * 存在的原因：这个组件是「改了就自动保存」的，而 watch(diary, deep)
+ * 在**加载数据时也会触发**（因为 diary 被赋值了）。不处理的话，
+ * 每打开一次日记就多发一次 PUT，把刚读回来的内容原样写回去。
+ */
+let lastSynced = ''
+const snapshot = () => JSON.stringify(diary.value)
+
+/**
+ * 加载是否失败。
+ *
+ * ★ 这是一个防数据丢失的开关，不是可有可无的状态。
+ *
+ * 场景：读取日记的网络请求失败了。此时界面上显示的是一份**空日记**，
+ * 但它不是用户真实的内容。如果这时自动保存照常工作，用户随便点一下
+ * 天气按钮，就会把「空日记 + 那一个天气」写回服务器，
+ * **把真实内容彻底覆盖掉**。
+ *
+ * 所以加载失败时禁止自动保存，并在界面上说明原因。
+ * 宁可这次改不了，也不能悄悄毁掉数据。
+ */
+let loadFailed = false
 
 const todayStr = computed(() => formatDate(new Date()))
 const readonly = computed(() => props.dateStr < todayStr.value)
@@ -127,29 +161,60 @@ function toggleMood(key) {
   if (idx === -1) { arr.push(key) } else { arr.splice(idx, 1) }
 }
 
-function load() {
+async function load() {
   if (!props.dateStr) {
     diary.value = empty()
+    lastSynced = snapshot()
+    loadFailed = false
     return
   }
-  const user = getCurrentUser()
-  if (!user) return
-  const saved = getDiary(user, props.dateStr)
-  if (saved) {
-    const d = { ...empty(), ...saved }
-    if (typeof d.weather === 'string') d.weather = d.weather ? [d.weather] : []
-    if (typeof d.mood === 'string') d.mood = d.mood ? [d.mood] : []
-    diary.value = d
-  } else {
+
+  const date = props.dateStr
+  loadFailed = false
+
+  try {
+    const saved = await diaries.get(date)
+    // 用户可能在请求返回之前就切到了别的日期——那这次结果就作废。
+    // 不处理的话会把前一天的日记显示在这一天上（典型的竞态）
+    if (props.dateStr !== date) return
+
+    // 后端保证返回的是同一个形状（没记录时是空日记，不是 null、不是 404），
+    // 所以这里不用判空。旧代码里那段「weather 是字符串就转成数组」的兼容
+    // 也删掉了——那是给 localStorage 里残留的历史数据准备的，数据搬到后端就没有了
+    diary.value = { ...empty(), ...saved }
+    lastSynced = snapshot()
+    errorMsg.value = ''
+  } catch (e) {
+    if (props.dateStr !== date) return
     diary.value = empty()
+    // 同步快照，让 autoSave 认为「没有变化」
+    lastSynced = snapshot()
+    loadFailed = true
+    errorMsg.value = `${e?.message || '读取日记失败'}（为避免覆盖已保存的内容，本次不会自动保存）`
   }
 }
 
-function onSave() {
+async function onSave() {
   if (!props.dateStr) return
-  const user = getCurrentUser()
-  if (!user) return
-  saveDiary(user, props.dateStr, { ...diary.value })
+  // 加载失败时禁止保存，见 loadFailed 的注释
+  if (loadFailed) return
+
+  const date = props.dateStr
+  const json = snapshot()
+
+  // 和上次同步的内容一样就不发请求。
+  // 这一条挡掉的是「刚加载完就触发一次保存」的无效请求
+  if (json === lastSynced) return
+
+  try {
+    await diaries.save(date, { ...diary.value })
+    lastSynced = json
+    if (props.dateStr === date) errorMsg.value = ''
+  } catch (e) {
+    if (props.dateStr === date) {
+      errorMsg.value = e?.message || '保存失败，请检查网络'
+    }
+  }
 }
 
 let saveTimeout = null
@@ -407,6 +472,17 @@ watch(diary, autoSave, { deep: true })
 .diary-textarea.readonly {
   opacity: 0.7;
   cursor: default;
+}
+
+.diary-error {
+  margin-top: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(200, 80, 70, 0.1);
+  border: 1px solid rgba(200, 80, 70, 0.28);
+  color: #a04030;
+  font-size: 11px;
+  line-height: 1.5;
 }
 </style>
 
